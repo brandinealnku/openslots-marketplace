@@ -19,7 +19,7 @@ Customers call multiple businesses and still wait days for a quote, while provid
 - React, TypeScript, Vite, React Router (hash routing), Lucide icons, CSS
 - Structured mock data and typed entities in `src/data` and `src/types.ts`
 - React context plus LocalStorage persistence; no backend, API key, or environment variables
-- Hash routes avoid GitHub Pages rewrite requirements. Vite uses `base: './'` so assets resolve from repository subdirectories.
+- Hash routes avoid GitHub Pages rewrite requirements. Vite uses the repository base path, `/openslots-marketplace/`, so production assets resolve correctly on GitHub Pages.
 
 ## Local setup
 
@@ -66,11 +66,20 @@ src/styles.css       Responsive design system
 
 ## GitHub Pages deployment
 
-1. Set the repository's Pages source to **GitHub Actions**, or install dependencies locally.
-2. Run `npm run deploy`. The `gh-pages` package builds and pushes `dist` to the `gh-pages` branch.
-3. In repository Settings → Pages, select **Deploy from a branch**, `gh-pages`, `/ (root)`.
+The public site is **https://brandinealnku.github.io/openslots-marketplace/**.
 
-For Actions, run `npm ci && npm run build`, upload `dist` with `actions/upload-pages-artifact`, then deploy with `actions/deploy-pages`. No SPA fallback is required because routing uses URL hashes.
+Deployment is handled by `.github/workflows/deploy-pages.yml` on every push to `main`, and can also be started with **Run workflow**. The GitHub Actions job uses Node.js 22, installs the committed lockfile with `npm ci`, tests and builds the application, and publishes only the generated `dist` directory with the official GitHub Pages actions.
+
+After merging, go to **Repository Settings → Pages → Build and deployment → Source** and select **GitHub Actions**. Do not select “Deploy from a branch” and do not publish the repository root. No SPA fallback is required: URLs such as `/#/search`, `/#/provider`, and `/#/admin` keep the route after `#` in the browser, so refreshing them requests the same deployed `index.html` rather than a server route.
+
+### Blank-page troubleshooting
+
+1. Hard-refresh the page (or clear the site data/cache) to discard an older cached HTML or JavaScript bundle.
+2. Select **Reset Demo Data** in the application. If the app cannot start, use **Clear OpenSlot LocalStorage and restart** on the visible error screen. You can also open browser developer tools, choose **Application → Local Storage**, remove `openslot-demo-v1`, and refresh.
+3. Open browser developer tools (**F12**, or **Inspect**) and check the **Console** for JavaScript errors and the **Network** panel for failed asset requests.
+4. In the successful workflow run, confirm that **Upload Pages artifact** uploaded `./dist`. In the deployed page source, the script and stylesheet URLs should begin with `/openslots-marketplace/assets/` and contain generated hashes. If the HTML still contains `/src/main.tsx`, the repository source was deployed instead of Vite's build output.
+
+To validate locally, run `npm ci && npm test && npm run build`, inspect `dist/index.html`, and optionally run `npm run preview`. The source `index.html` intentionally references `/src/main.tsx`; Vite replaces it with compiled assets during the build.
 
 ## Known limitations and roadmap
 
