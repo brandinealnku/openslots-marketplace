@@ -1,2 +1,16 @@
-import React from 'react';import ReactDOM from 'react-dom/client';import App from './App';import {StoreProvider} from './store';import './styles.css';
-ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><StoreProvider><App/></StoreProvider></React.StrictMode>);
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import ErrorBoundary from './ErrorBoundary';
+import { StoreProvider } from './store';
+import './styles.css';
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <ErrorBoundary>
+      <StoreProvider>
+        <App />
+      </StoreProvider>
+    </ErrorBoundary>
+  </React.StrictMode>,
+);
