@@ -1,0 +1,2 @@
+import {describe,expect,it} from 'vitest';import {validateEnvironment} from './env';
+describe('environment validation',()=>{it('permits explicit demo mode',()=>expect(validateEnvironment({VITE_APP_MODE:'demo'}).connected).toBe(false));it('requires connected credentials',()=>expect(()=>validateEnvironment({VITE_APP_MODE:'production'})).toThrow(/VITE_SUPABASE/));it('rejects service role material',()=>expect(()=>validateEnvironment({VITE_APP_MODE:'production',VITE_SUPABASE_URL:'https://x.supabase.co',VITE_SUPABASE_ANON_KEY:'service_role'})).toThrow(/service-role/))});

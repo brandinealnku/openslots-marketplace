@@ -1,0 +1,13 @@
+# OpenSlot v0.2 architecture
+
+The React/Vite/hash-router design is retained. `src/lib` validates public browser configuration and provides a typed Supabase HTTP boundary; domain modules in `src/services` own auth, profile, opening, booking, review, storage, and admin operations. Mock context remains only for explicit `VITE_APP_MODE=demo`; connected records must never silently mix with it.
+
+Supabase Auth identities map one-to-one to `profiles`; an `auth.users` trigger creates the base customer/provider record. A trigger blocks self-promotion and account-status edits. Admins are bootstrapped out of band. UI route guards should use the database role, while RLS remains authoritative.
+
+The migration normalizes accounts, services, availability, openings, bookings and snapshots, photos, saves, reviews, notifications, documents, support, and audit events. Every user-facing table has RLS. Policies isolate private customer/provider records; published openings expose only eligible inventory. Storage buckets are private and booking-photo reads join through booking participants.
+
+`create_booking` locks the opening row, validates published/unexpired inventory and address ownership, snapshots prices/add-ons, inserts one booking, changes opening state, and creates notifications in one transaction. A partial unique index is defense in depth. `transition_booking` validates actor-specific transitions, timestamps the action, updates inventory, and audits it. Review eligibility is enforced by trigger.
+
+Payments, fees, payouts, tax, identity/insurance review, and notification delivery remain simulated. There is no Stripe, live geocoding/maps, GPS/routing, SMS, SMTP delivery, background-check integration, calendar sync, or chat. Approval-request expiration requires a configured scheduled job. The checked-in database verification file is a manual harness and requires a running Supabase project.
+
+GitHub Pages still builds `dist`, uses `/openslots-marketplace/`, and uses hash routes. Only public URL/anon credentials are Vite variables; authorization never depends on key secrecy.

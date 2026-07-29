@@ -1,0 +1,3 @@
+import {rest} from '../lib/supabase';
+export interface OpeningFilters{category?:string;date?:string;maximumPrice?:number;minimumRating?:number;bookingMethod?:'instant'|'provider_approval';providerName?:string;postalCode?:string}
+export const openingService={search:(filters:OpeningFilters,token:string)=>{const q=new URLSearchParams({select:'*',status:'eq.published',expiration_at:`gt.${new Date().toISOString()}`,order:'start_at.asc'});if(filters.maximumPrice)q.set('fixed_price',`lte.${filters.maximumPrice}`);if(filters.bookingMethod)q.set('booking_method',`eq.${filters.bookingMethod}`);if(filters.postalCode)q.set('starting_postal_code',`eq.${filters.postalCode}`);return rest('marketplace_openings',`?${q}`,{},token)}};
