@@ -7,3 +7,9 @@
 - Cancellation policy currently permits customer cancellation in the RPC without a time-window rule; configure the intended marketplace policy before launch.
 - Client MIME/size checks are supplemental; Storage bucket constraints and RLS are authoritative, but malware scanning is absent.
 - Payments, tax and payout estimates are simulations and are not accounting records.
+
+## Version 0.3 integration audit (2026-07-29)
+
+The database foundation does not by itself prove the browser workflows. The official Supabase SDK install was blocked by an HTTP 403 from this environment's registry proxy, so the interim adapter remains and connected Auth/session/Realtime UI acceptance is unresolved. Live three-browser, recovery-email, Cron, Storage, RLS, and concurrency checks require a configured Supabase project and must follow `MANUAL_TEST_PLAN_V03.md`. Never promote this build as fully connected until those checks and the official SDK migration pass.
+
+The new administrator RPC uses a security-definer function with a fixed search path and an internal admin check. Reservation expiry is scheduler-ready but not active until Supabase Cron is configured. Payments, payouts, exact distance, maps, messaging, automated verification, calendar sync, and production observability remain deferred.
