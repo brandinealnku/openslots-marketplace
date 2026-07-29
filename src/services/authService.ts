@@ -2,6 +2,8 @@ import type {AuthChangeEvent, Session} from '@supabase/supabase-js';
 import {requireSupabase} from '../lib/supabase';
 
 export type RegistrationRole='customer'|'provider';
+export type OAuthProvider='google'|'apple';
+export function authRedirect(path:string){return `${location.origin}${location.pathname}#${path}`}
 export class AuthApplicationError extends Error { constructor(public code:string, message:string){super(message);this.name='AuthApplicationError'} }
 export function normalizeAuthError(error:unknown):AuthApplicationError{
  const raw=error instanceof Error?error.message.toLowerCase():'';
@@ -16,84 +18,17 @@ export function normalizeAuthError(error:unknown):AuthApplicationError{
  if(raw.includes('session'))return new AuthApplicationError('session_expired','Your session expired. Please sign in again.');
  return new AuthApplicationError('unexpected','We could not complete that account request. Please try again.');
 }
-async function result<TResponse extends { data: unknown; error: unknown }>(
-  work: Promise<TResponse>,
-): Promise<TResponse['data']> {
-  const { data, error } = await work;
-
-  if (error) {
-    throw normalizeAuthError(error);
-  }
-
-  return data;
-}
-
-async function action(
-  work: Promise<{ error: unknown }>,
-): Promise<void> {
-  const { error } = await work;
-
-  if (error) {
-    throw normalizeAuthError(error);
-  }
-}
-export const authService = {
-  signUp: (input: {
-    email: string;
-    password: string;
-    fullName: string;
-    role: RegistrationRole;
-  }) =>
-    result(
-      requireSupabase().auth.signUp({
-        email: input.email,
-        password: input.password,
-        options: {
-          data: {
-            full_name: input.fullName,
-            requested_role: input.role,
-          },
-          emailRedirectTo: `${location.origin}${location.pathname}#/verify-email`,
-        },
-      }),
-    ),
-
-  signIn: (email: string, password: string) =>
-    result(
-      requireSupabase().auth.signInWithPassword({
-        email,
-        password,
-      }),
-    ),
-
-  signOut: () => action(requireSupabase().auth.signOut()),
-
-  getSession: () => result(requireSupabase().auth.getSession()),
-
-  getUser: () => result(requireSupabase().auth.getUser()),
-
-  requestPasswordReset: (email: string) =>
-    result(
-      requireSupabase().auth.resetPasswordForEmail(email, {
-        redirectTo: `${location.origin}${location.pathname}#/reset-password`,
-      }),
-    ),
-
-  updatePassword: (password: string) =>
-    result(requireSupabase().auth.updateUser({ password })),
-
-  resendVerification: (email: string) =>
-    result(
-      requireSupabase().auth.resend({
-        type: 'signup',
-        email,
-        options: {
-          emailRedirectTo: `${location.origin}${location.pathname}#/verify-email`,
-        },
-      }),
-    ),
-
-  subscribeToAuthChanges: (
-    callback: (event: AuthChangeEvent, session: Session | null) => void,
-  ) => requireSupabase().auth.onAuthStateChange(callback),
+async function result<T>(work:Promise<{data:T;error:unknown}>):Promise<T>{const {data,error}=await work;if(error)throw normalizeAuthError(error);return data}
+export const authService={
+ signUp:(input:{email:string;password:string;fullName:string;role:RegistrationRole})=>result(requireSupabase().auth.signUp({email:input.email,password:input.password,options:{data:{full_name:input.fullName,requested_role:input.role},emailRedirectTo:`${location.origin}${location.pathname}#/verify-email`}})),
+ signIn:(email:string,password:string)=>result(requireSupabase().auth.signInWithPassword({email,password})),
+ signInWithOAuth:(provider:OAuthProvider)=>result(requireSupabase().auth.signInWithOAuth({provider,options:{redirectTo:authRedirect('/auth/callback')}})),
+ completeOAuthCallback:(code:string)=>result(requireSupabase().auth.exchangeCodeForSession(code)),
+ signOut:()=>result(requireSupabase().auth.signOut()),
+ getSession:()=>result(requireSupabase().auth.getSession()),
+ getUser:()=>result(requireSupabase().auth.getUser()),
+ requestPasswordReset:(email:string)=>result(requireSupabase().auth.resetPasswordForEmail(email,{redirectTo:`${location.origin}${location.pathname}#/reset-password`})),
+ updatePassword:(password:string)=>result(requireSupabase().auth.updateUser({password})),
+ resendVerification:(email:string)=>result(requireSupabase().auth.resend({type:'signup',email,options:{emailRedirectTo:`${location.origin}${location.pathname}#/verify-email`}})),
+ subscribeToAuthChanges:(callback:(event:AuthChangeEvent,session:Session|null)=>void)=>requireSupabase().auth.onAuthStateChange(callback),
 };

@@ -40,3 +40,13 @@ select id, email, role, account_status from public.profiles where id = 'USER_UUI
 RLS/profile-protection prevents a normal browser user from performing this privilege change. Sign out and back in after promotion.
 
 Apply `202607290005_auth_security_fixes.sql` through the normal linked workflow, then run the Supabase database linter. The migration fixes mutable search paths, restricts trigger functions, removes anonymous RPC execution, and preserves authenticated access only to browser RPCs that validate identity/role/ownership/status internally.
+
+## OpenSlot 0.3.2 Google and Apple OAuth
+
+1. Apply `supabase/migrations/202607290006_social_auth_role_selection.sql` with `supabase db push` (or `npm run db:push`). Do not run the role RPC with a service-role key from the browser.
+2. In Authentication → URL Configuration, retain the Pages Site URL and add exact redirects for `https://brandinealnku.github.io/openslots-marketplace/#/auth/callback` and `http://localhost:5173/#/auth/callback`.
+3. In Google Cloud, create an OAuth web client, configure the Supabase callback URL shown in Authentication → Providers → Google, configure the consent screen, then enter the client ID/secret in Supabase and enable Google.
+4. In Apple Developer, create/verify the Services ID and web domain, configure Supabase's displayed callback URL, create a Sign in with Apple key/client secret, then enter those values in Authentication → Providers → Apple and enable Apple.
+5. Keep Email enabled. Test email signup/login/recovery plus new and returning Google/Apple users on localhost and the deployed Pages URL. Verify a new social user is sent to `#/choose-role`, the choice works once, and dashboard access matches it.
+
+Source code inclusion does not configure either third-party provider. Provider credentials and dashboard access are required before either flow can be browser-tested.
