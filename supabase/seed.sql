@@ -1,0 +1,4 @@
+insert into public.service_categories(slug,name,description,icon,sort_order) values
+('lawn-mowing','Lawn mowing','Routine mowing','grass',1),('lawn-edging','Lawn edging','Edges and borders','scissors',2),('yard-cleanup','Yard cleanup','Seasonal cleanup','leaf',3),('leaf-removal','Leaf removal','Leaf collection','leaf',4),('gutter-cleaning','Gutter cleaning','Clear accessible gutters','home',5),('pressure-washing','Pressure washing','Exterior surface washing','droplets',6),('snow-removal','Snow removal','Drive and walk clearing','snowflake',7),('mobile-car-detailing','Mobile car detailing','On-site detailing','car',8) on conflict(slug) do update set name=excluded.name;
+-- Auth-backed demo users must be created locally with scripts/seed-users.mjs or the Dashboard.
+-- Fake production credentials are intentionally not embedded in public SQL.

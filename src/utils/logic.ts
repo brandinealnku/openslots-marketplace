@@ -4,3 +4,8 @@ export const isExpired=(opening:Opening,now=new Date())=>new Date(opening.expire
 export const filterOpenings=(items:Opening[],q:{service?:string;maxPrice?:number;rating?:number},ratings:Record<string,number>={})=>items.filter(x=>x.status==='active'&&(!q.service||x.service===q.service)&&(!q.maxPrice||x.price<=q.maxPrice)&&(!q.rating||(ratings[x.providerId]||0)>=q.rating));
 export const sortOpenings=(items:Opening[],sort:string)=>[...items].sort((a,b)=>sort==='price'?a.price-b.price:sort==='distance'?a.distance-b.distance:sort==='rating'?0:new Date(`${a.date} ${a.time}`).getTime()-new Date(`${b.date} ${b.time}`).getTime());
 export const updateBookingStatus=(booking:Booking,status:Booking['status'])=>({...booking,status});
+export type ActorRole='customer'|'provider'|'admin';
+const transitions:Record<ActorRole,Record<string,string[]>>={customer:{Requested:['Cancelled'],Confirmed:['Cancelled']},provider:{Requested:['Confirmed','Cancelled'],Confirmed:['Provider en route','Cancelled'],'Provider en route':['In progress'],'In progress':['Completed']},admin:{}};
+export const canTransition=(role:ActorRole,from:string,to:string)=>role==='admin'?from!==to:Boolean(transitions[role][from]?.includes(to));
+export const providerPayoutEstimate=(subtotal:number)=>+(subtotal*(1-FEES.platformRate)).toFixed(2);
+export const confirmationCode=(id:string,year=new Date().getUTCFullYear())=>`OS-${year}-${id.replace(/-/g,'').slice(0,8).toUpperCase()}`;

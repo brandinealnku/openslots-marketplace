@@ -1,0 +1,2 @@
+import {rest} from '../lib/supabase';
+export const profileService={get:(id:string,token:string)=>rest('profiles',`?id=eq.${id}&select=id,role,display_name,phone,avatar_path,account_status`,{},token),update:(id:string,input:{display_name?:string;phone?:string;avatar_path?:string},token:string)=>rest('profiles',`?id=eq.${id}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(input)},token)};

@@ -1,0 +1,3 @@
+import {supabaseRequest} from '../lib/supabase';
+const TYPES=['image/jpeg','image/png','image/webp'];export function validatePhoto(file:File){if(!TYPES.includes(file.type))throw new Error('Use a JPEG, PNG, or WebP image.');if(file.size>8*1024*1024)throw new Error('Images must be 8 MB or smaller.');}
+export const storageService={uploadBookingPhoto:async(file:File,userId:string,bookingId:string,token:string)=>{validatePhoto(file);const ext=file.name.split('.').pop()?.toLowerCase()||'jpg',path=`${userId}/${bookingId}/${crypto.randomUUID()}.${ext}`;return supabaseRequest(`storage/v1/object/booking-photos/${path}`,{method:'POST',headers:{'Content-Type':file.type},body:file},token).then(()=>path)}};
