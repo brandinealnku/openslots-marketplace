@@ -1,0 +1,483 @@
+From e18f9031cc567639d14c3dbf25fa910b1aefa58d Mon Sep 17 00:00:00 2001
+From: Brandi Neal <nealb3@nku.edu>
+Date: Wed, 29 Jul 2026 17:24:29 -0400
+Subject: [PATCH] feat: add social login and restore marketplace design
+
+---
+ README.md                                     |   5 +
+ SUPABASE_SETUP.md                             |  10 ++
+ V032_IMPLEMENTATION_REPORT.md                 |  11 ++
+ package-lock.json                             | 125 +++++++++++++++++-
+ src/App.tsx                                   |   8 +-
+ src/auth/AuthProvider.tsx                     |   4 +-
+ src/auth/routing.test.ts                      |   2 +-
+ src/auth/socialAuth.test.ts                   |  13 ++
+ src/pages/AuthPages.tsx                       |  12 +-
+ src/services/authService.ts                   |   4 +
+ src/services/profileService.ts                |   7 +-
+ src/styles.css                                |   4 +
+ src/types/database.ts                         |   4 +-
+ ...02607290006_social_auth_role_selection.sql |  61 +++++++++
+ 14 files changed, 250 insertions(+), 20 deletions(-)
+ create mode 100644 V032_IMPLEMENTATION_REPORT.md
+ create mode 100644 src/auth/socialAuth.test.ts
+ create mode 100644 supabase/migrations/202607290006_social_auth_role_selection.sql
+
+diff --git a/README.md b/README.md
+index 75736f3..0cf4bd8 100644
+--- a/README.md
++++ b/README.md
+@@ -31,3 +31,8 @@ The Pages repository must define Actions **variables** (not service-role secrets
+ 
+ ## Connected authentication (0.3.1)
+ OpenSlot now has hash-routed connected account pages at `#/login`, `#/register`, `#/forgot-password`, and `#/reset-password`. `VITE_APP_MODE=demo` preserves the isolated Early Access prototype; `development` and `production` require real Supabase URL/anon-key values and never silently use demo identity data. See `SUPABASE_SETUP.md`, `AUTH_IMPLEMENTATION_REPORT.md`, and `MANUAL_TEST_PLAN_AUTH.md` before claiming live verification.
++
++## Connected authentication (0.3.2)
++Google and Apple buttons use Supabase OAuth and return through the hash-routed `#/auth/callback` page. A first-time social account must choose customer or provider at `#/choose-role`; the one-time choice is committed by the database RPC in `202607290006_social_auth_role_selection.sql`. Email/password registration, verification, recovery, and login remain available. Demo mode does not initialize or expose connected social identity.
++
++See `V032_IMPLEMENTATION_REPORT.md` and `SUPABASE_SETUP.md` for provider configuration and verification boundaries.
+diff --git a/SUPABASE_SETUP.md b/SUPABASE_SETUP.md
+index 73c6774..bbea13d 100644
+--- a/SUPABASE_SETUP.md
++++ b/SUPABASE_SETUP.md
+@@ -40,3 +40,13 @@ select id, email, role, account_status from public.profiles where id = 'USER_UUI
+ RLS/profile-protection prevents a normal browser user from performing this privilege change. Sign out and back in after promotion.
+ 
+ Apply `202607290005_auth_security_fixes.sql` through the normal linked workflow, then run the Supabase database linter. The migration fixes mutable search paths, restricts trigger functions, removes anonymous RPC execution, and preserves authenticated access only to browser RPCs that validate identity/role/ownership/status internally.
++
++## OpenSlot 0.3.2 Google and Apple OAuth
++
++1. Apply `supabase/migrations/202607290006_social_auth_role_selection.sql` with `supabase db push` (or `npm run db:push`). Do not run the role RPC with a service-role key from the browser.
++2. In Authentication → URL Configuration, retain the Pages Site URL and add exact redirects for `https://brandinealnku.github.io/openslots-marketplace/#/auth/callback` and `http://localhost:5173/#/auth/callback`.
++3. In Google Cloud, create an OAuth web client, configure the Supabase callback URL shown in Authentication → Providers → Google, configure the consent screen, then enter the client ID/secret in Supabase and enable Google.
++4. In Apple Developer, create/verify the Services ID and web domain, configure Supabase's displayed callback URL, create a Sign in with Apple key/client secret, then enter those values in Authentication → Providers → Apple and enable Apple.
++5. Keep Email enabled. Test email signup/login/recovery plus new and returning Google/Apple users on localhost and the deployed Pages URL. Verify a new social user is sent to `#/choose-role`, the choice works once, and dashboard access matches it.
++
++Source code inclusion does not configure either third-party provider. Provider credentials and dashboard access are required before either flow can be browser-tested.
+diff --git a/V032_IMPLEMENTATION_REPORT.md b/V032_IMPLEMENTATION_REPORT.md
+new file mode 100644
+index 0000000..2bace62
+--- /dev/null
++++ b/V032_IMPLEMENTATION_REPORT.md
+@@ -0,0 +1,11 @@
++# OpenSlot 0.3.2 implementation report
++
++Version 0.3.2 restores a marketplace-first landing experience while preserving the explicitly isolated demo build and connected email/password flows. Connected accounts now offer Google and Apple OAuth through Supabase, use a hash-compatible callback route, and require social users to choose customer or provider once through a server-side RPC.
++
++## Security boundary
++
++The browser may request only `customer` or `provider`. `select_initial_role` derives identity from `auth.uid()`, accepts an active profile only while `role_selected_at` is null, recreates exactly one matching subtype row, and cannot assign `admin`. Existing users are backfilled as already selected. OAuth metadata is never trusted for authorization.
++
++## Verification scope
++
++Automated checks cover compilation, existing service behavior, account routing, and social-role routing. Provider enablement, consent-screen review, OAuth credentials, hosted redirects, Apple domain verification, and a real first login require dashboard credentials and manual browser testing; they are not represented as completed by source-level tests.
+diff --git a/package-lock.json b/package-lock.json
+index 9eefb7f..8ecbe50 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1173,6 +1173,72 @@
+         "win32"
+       ]
+     },
++    "node_modules/@supabase/auth-js": {
++      "version": "2.71.1",
++      "resolved": "https://registry.npmjs.org/@supabase/auth-js/-/auth-js-2.71.1.tgz",
++      "license": "MIT",
++      "dependencies": {
++        "@supabase/node-fetch": "2.6.15"
++      }
++    },
++    "node_modules/@supabase/functions-js": {
++      "version": "2.4.5",
++      "resolved": "https://registry.npmjs.org/@supabase/functions-js/-/functions-js-2.4.5.tgz",
++      "license": "MIT",
++      "dependencies": {
++        "@supabase/node-fetch": "2.6.15"
++      }
++    },
++    "node_modules/@supabase/node-fetch": {
++      "version": "2.6.15",
++      "resolved": "https://registry.npmjs.org/@supabase/node-fetch/-/node-fetch-2.6.15.tgz",
++      "license": "MIT",
++      "dependencies": {
++        "whatwg-url": "^5.0.0"
++      },
++      "engines": {
++        "node": "4.x || >=6.0.0"
++      }
++    },
++    "node_modules/@supabase/postgrest-js": {
++      "version": "1.19.4",
++      "resolved": "https://registry.npmjs.org/@supabase/postgrest-js/-/postgrest-js-1.19.4.tgz",
++      "license": "MIT",
++      "dependencies": {
++        "@supabase/node-fetch": "2.6.15"
++      }
++    },
++    "node_modules/@supabase/realtime-js": {
++      "version": "2.11.15",
++      "resolved": "https://registry.npmjs.org/@supabase/realtime-js/-/realtime-js-2.11.15.tgz",
++      "license": "MIT",
++      "dependencies": {
++        "@supabase/node-fetch": "2.6.15",
++        "@types/phoenix": "^1.6.4",
++        "@types/ws": "^8.18.1",
++        "ws": "^8.18.2"
++      }
++    },
++    "node_modules/@supabase/storage-js": {
++      "version": "2.10.4",
++      "resolved": "https://registry.npmjs.org/@supabase/storage-js/-/storage-js-2.10.4.tgz",
++      "license": "MIT",
++      "dependencies": {
++        "@supabase/node-fetch": "2.6.15"
++      }
++    },
++    "node_modules/@supabase/supabase-js": {
++      "version": "2.53.0",
++      "resolved": "https://registry.npmjs.org/@supabase/supabase-js/-/supabase-js-2.53.0.tgz",
++      "license": "MIT",
++      "dependencies": {
++        "@supabase/auth-js": "2.71.1",
++        "@supabase/functions-js": "2.4.5",
++        "@supabase/postgrest-js": "1.19.4",
++        "@supabase/realtime-js": "2.11.15",
++        "@supabase/storage-js": "2.10.4"
++      }
++    },
+     "node_modules/@types/babel__core": {
+       "version": "7.20.5",
+       "resolved": "https://registry.npmjs.org/@types/babel__core/-/babel__core-7.20.5.tgz",
+@@ -1225,6 +1291,12 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/@types/phoenix": {
++      "version": "1.6.4",
++      "resolved": "https://registry.npmjs.org/@types/phoenix/-/phoenix-1.6.4.tgz",
++      "dev": false,
++      "license": "MIT"
++    },
+     "node_modules/@types/react": {
+       "version": "19.1.8",
+       "resolved": "https://registry.npmjs.org/@types/react/-/react-19.1.8.tgz",
+@@ -1245,6 +1317,15 @@
+         "@types/react": "^19.0.0"
+       }
+     },
++    "node_modules/@types/ws": {
++      "version": "8.18.1",
++      "resolved": "https://registry.npmjs.org/@types/ws/-/ws-8.18.1.tgz",
++      "dev": false,
++      "license": "MIT",
++      "dependencies": {
++        "@types/node": "*"
++      }
++    },
+     "node_modules/@vitejs/plugin-react": {
+       "version": "4.5.2",
+       "resolved": "https://registry.npmjs.org/@vitejs/plugin-react/-/plugin-react-4.5.2.tgz",
+@@ -2644,6 +2725,11 @@
+         "node": ">=8.0"
+       }
+     },
++    "node_modules/tr46": {
++      "version": "0.0.3",
++      "resolved": "https://registry.npmjs.org/tr46/-/tr46-0.0.3.tgz",
++      "license": "MIT"
++    },
+     "node_modules/trim-repeated": {
+       "version": "1.0.0",
+       "resolved": "https://registry.npmjs.org/trim-repeated/-/trim-repeated-1.0.0.tgz",
+@@ -2878,6 +2964,20 @@
+         }
+       }
+     },
++    "node_modules/webidl-conversions": {
++      "version": "3.0.1",
++      "resolved": "https://registry.npmjs.org/webidl-conversions/-/webidl-conversions-3.0.1.tgz",
++      "license": "BSD-2-Clause"
++    },
++    "node_modules/whatwg-url": {
++      "version": "5.0.0",
++      "resolved": "https://registry.npmjs.org/whatwg-url/-/whatwg-url-5.0.0.tgz",
++      "license": "MIT",
++      "dependencies": {
++        "tr46": "~0.0.3",
++        "webidl-conversions": "^3.0.0"
++      }
++    },
+     "node_modules/why-is-node-running": {
+       "version": "2.3.0",
+       "resolved": "https://registry.npmjs.org/why-is-node-running/-/why-is-node-running-2.3.0.tgz",
+@@ -2895,17 +2995,32 @@
+         "node": ">=8"
+       }
+     },
++    "node_modules/ws": {
++      "version": "8.18.2",
++      "resolved": "https://registry.npmjs.org/ws/-/ws-8.18.2.tgz",
++      "license": "MIT",
++      "engines": {
++        "node": ">=10.0.0"
++      },
++      "peerDependencies": {
++        "bufferutil": "^4.0.1",
++        "utf-8-validate": ">=5.0.2"
++      },
++      "peerDependenciesMeta": {
++        "bufferutil": {
++          "optional": true
++        },
++        "utf-8-validate": {
++          "optional": true
++        }
++      }
++    },
+     "node_modules/yallist": {
+       "version": "3.1.1",
+       "resolved": "https://registry.npmjs.org/yallist/-/yallist-3.1.1.tgz",
+       "integrity": "sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g==",
+       "dev": true,
+       "license": "ISC"
+-    },
+-    "node_modules/@supabase/supabase-js": {
+-      "version": "2.53.0",
+-      "resolved": "https://registry.npmjs.org/@supabase/supabase-js/-/supabase-js-2.53.0.tgz",
+-      "license": "MIT"
+     }
+   }
+ }
+diff --git a/src/App.tsx b/src/App.tsx
+index ad99a76..6a7604a 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,6 +1,6 @@
+-import {useState,type FormEvent} from 'react'; import {HashRouter,Link,NavLink,Navigate,Route,Routes,useNavigate,useParams} from 'react-router-dom'; import {ArrowRight,CalendarDays,Check,ChevronRight,Clock3,DollarSign,Home,LayoutDashboard,MapPin,Menu,RotateCcw,Search,ShieldCheck,Sparkles,UserRound} from 'lucide-react';
++import {useEffect,useState,type FormEvent} from 'react'; import {HashRouter,Link,NavLink,Navigate,Route,Routes,useNavigate,useParams} from 'react-router-dom'; import {ArrowRight,CalendarDays,Check,ChevronRight,Clock3,DollarSign,Home,LayoutDashboard,MapPin,Menu,RotateCcw,Search,ShieldCheck,Sparkles,UserRound} from 'lucide-react';
+ import {BRAND} from './config'; import {applications as seedApps,providers,reviews,routeSuggestions,services} from './data/mockData'; import {useStore} from './store'; import {Badge,Empty,MapMock,OpeningCard,Rating} from './components'; import {calculatePrice,filterOpenings,sortOpenings} from './utils/logic'; import type {Opening,Role} from './types';
+-import {env} from './lib/env'; import {AuthProvider,useAuth} from './auth/AuthProvider'; import {RequireAdmin,RequireApprovedProvider,RequireCustomer,RequireProvider} from './auth/guards'; import {AccountStatusPage,CustomerProfilePage,ForgotPasswordPage,LoginPage,ProviderApplicationStatus,RegisterPage,ResetPasswordPage,VerifyEmailPage} from './pages/AuthPages';
++import {env} from './lib/env'; import {AuthProvider,useAuth} from './auth/AuthProvider'; import {RequireAdmin,RequireApprovedProvider,RequireCustomer,RequireProvider} from './auth/guards'; import {AccountStatusPage,CustomerProfilePage,ForgotPasswordPage,LoginPage,ProviderApplicationStatus,RegisterPage,ResetPasswordPage,VerifyEmailPage,OAuthCallbackPage,RoleSelectionPage} from './pages/AuthPages';
+ function DemoShell(){const {role,setRole,reset}=useStore();return <><div className="demo-bar"><span>OpenSlot Early Access Demo</span><label>View as <select value={role} onChange={e=>setRole(e.target.value as Role)}><option value="customer">Customer</option><option value="provider">Provider</option><option value="admin">Administrator</option></select></label><button onClick={reset}><RotateCcw size={14}/> Reset Demo Data</button></div><header className="site-header"><Link className="brand" to="/"><span>O</span>{BRAND.name}</Link><nav><NavLink to="/search">Find openings</NavLink><NavLink to="/how-it-works">How it works</NavLink><NavLink to="/trust">Trust & safety</NavLink>{role==='provider'&&<NavLink to="/provider">Dashboard</NavLink>}{role==='admin'&&<NavLink to="/admin">Admin</NavLink>}</nav><Link className="button small" to="/provider/openings/new">I Have an Opening</Link></header><main><Routes><Route path="/" element={<HomePage/>}/><Route path="/search" element={<SearchPage/>}/><Route path="/opening/:id" element={<Detail/>}/><Route path="/book/:id" element={<BookingFlow/>}/><Route path="/booking-confirmation/:id" element={<Confirmation/>}/><Route path="/customer/bookings" element={<CustomerBookings/>}/><Route path="/customer/saved" element={<Saved/>}/><Route path="/provider" element={<ProviderDashboard/>}/><Route path="/provider/onboarding" element={<Onboarding/>}/><Route path="/provider/openings/new" element={<PostOpening/>}/><Route path="/provider/schedule" element={<Schedule/>}/><Route path="/provider/earnings" element={<Earnings/>}/><Route path="/admin" element={<Admin/>}/><Route path="/trust" element={<Trust/>}/><Route path="/how-it-works" element={<How/>}/><Route path="/about" element={<About/>}/><Route path="*" element={<Navigate to="/"/>}/></Routes></main><BottomNav role={role}/><footer className="footer"><div><strong>{BRAND.name}</strong><p>{BRAND.tagline}</p></div><p>Early product concept · Cincinnati & Northern Kentucky</p></footer></>}
+ function BottomNav({role}:{role:Role}){const links=role==='provider'?[['/provider','Dashboard'],['/provider/schedule','Schedule'],['/provider/openings/new','Post'],['/provider/earnings','Earnings']]:role==='admin'?[['/admin','Admin'],['/search','Listings'],['/trust','Safety']]:[['/','Home'],['/search','Search'],['/customer/bookings','Bookings'],['/customer/saved','Saved']];return <nav className="bottom-nav">{links.map(([to,l],i)=><NavLink to={to} key={to}>{i===0?<Home/>:i===1?<Search/>:i===2?<CalendarDays/>:<UserRound/>}<span>{l}</span></NavLink>)}</nav>}
+ function HomePage(){const nav=useNavigate();const [service,setService]=useState('Lawn mowing');return <><section className="hero"><div className="hero-copy"><Badge tone="lime">● Openings today near 41071</Badge><h1>Local help, available when you need it.</h1><p>Browse trusted local service providers with openings today or later this week. Choose a time, review the price, and book in minutes.</p><div className="hero-actions"><Link className="button large" to="/search">Find an opening <ArrowRight/></Link><Link className="button secondary large" to="/provider/openings/new">List my availability</Link></div><div className="trust-row"><span><ShieldCheck/> Verified profiles</span><span><DollarSign/> Upfront demo prices</span><span><Clock3/> Specific time slots</span></div></div><div className="hero-visual"><div className="float-card"><span className="pulse"/> Just opened · 3:00 PM</div><OpeningCard opening={useStore().openings[0]} compact/></div></section><form className="search-box" onSubmit={e=>{e.preventDefault();nav(`/search?service=${encodeURIComponent(service)}`)}}><label>What do you need?<select value={service} onChange={e=>setService(e.target.value)}>{services.map(x=><option>{x}</option>)}</select></label><label>Where?<input defaultValue="41071" aria-label="Address or ZIP code"/></label><label>When?<input type="date" defaultValue={new Date().toISOString().slice(0,10)}/></label><button className="button large"><Search/> Search openings</button></form><section className="section"><div className="eyebrow">WHY OPENSLOT</div><h2>Not just a provider. A time you can book.</h2><p className="lead">Skip the phone tag. Every result is a real appointment opening with a clear scope and upfront demo price.</p><div className="feature-strip">{[['01','Search nearby openings','Choose what you need and when.'],['02','Compare trusted providers','Review prices, ratings, and details.'],['03','Book your time','Reserve and receive confirmation.']].map(x=><div><b>{x[0]}</b><h3>{x[1]}</h3><p>{x[2]}</p></div>)}</div></section><section className="section tint"><div><div className="eyebrow">FOR LOCAL PROS</div><h2>Turn a schedule gap into your next job.</h2><p className="lead">Fill gaps in your schedule with nearby jobs.</p></div><div className="steps">{['Post an opening','Reach nearby customers','Turn downtime into revenue'].map((x,i)=><div><span>{i+1}</span><h3>{x}</h3><p>{i===0?'Add an unused time slot.':i===1?'We show it in your service area.':'Accept the booking and add it to your route.'}</p></div>)}</div></section></>}
+@@ -20,6 +20,6 @@ function Admin(){const s=useStore();return <div className="page wide"><div class
+ function Trust(){const topics=[['Identity & business verification','Future production checks will validate identity and business details before a provider can list.'],['Insurance status','Providers can submit insurance documentation and customers can see its review status.'],['Reviews with context','Ratings cover quality, timeliness, communication, listing accuracy, and value.'],['Payment protection concept','A future processor would securely handle payment, refunds, disputes, and provider payouts.'],['Photos & damage reporting','Before-and-after photos can document scope and support property-damage review.'],['Community conduct','Customers and providers agree to respectful, safe behavior and accurate job descriptions.']];return <div className="page"><div className="eyebrow">TRUST & SAFETY</div><h1>Clear expectations. Safer service.</h1><p className="lead">Trust is designed into each opening—from a precise scope to visible provider credentials.</p><div className="demo-notice"><ShieldCheck/><b>Early concept notice:</b> verification, payment protection, identity checks, and insurance review are simulated.</div><div className="cards-3">{topics.map(([h,p])=><article><div className="trust-icon"><ShieldCheck/></div><h2>{h}</h2><p>{p}</p></article>)}</div><section className="policy"><h2>Example cancellation policies</h2><div><article><h3>Customer cancellation</h3><ul><li>More than 12 hours: full refund</li><li>2–12 hours: partial cancellation fee</li><li>Under 2 hours: service may be nonrefundable</li></ul></article><article><h3>Provider cancellation</h3><ul><li>Full customer refund</li><li>Frequent cancellations may reduce visibility</li><li>Emergency exceptions may be reviewed</li></ul></article></div><small>Example policies only; subject to change before launch.</small></section><section><h2>Restricted categories</h2><p>OpenSlot does not list electrical work, major plumbing, medical services, childcare, roofing, or licensed construction work in this prototype.</p></section></div>}
+ function How(){return <div className="page"><div className="eyebrow">HOW IT WORKS</div><h1>One marketplace. Two ways to make time count.</h1><div className="cards-3">{['Search nearby openings','Compare trusted providers','Book your time','Post an opening','Reach nearby customers','Turn downtime into revenue'].map((x,i)=><article><span className="step-num">{i%3+1}</span><Badge>{i<3?'For customers':'For providers'}</Badge><h2>{x}</h2><p>Specific times, transparent details, and a simple next step keep everyone moving.</p></article>)}</div></div>}
+ function About(){return <div className="page narrow"><div className="eyebrow">ABOUT THE CONCEPT</div><h1>Unused time should not go to waste.</h1><p className="lead">OpenSlot is a real-time marketplace for local service capacity, beginning with lawn and outdoor home care in Cincinnati and Northern Kentucky.</p><p>This application is an early-stage product prototype. Payments, provider verification, mapping, routing, and identity checks are simulated.</p></div>}
+-function ConnectedShell(){const a=useAuth(),nav=useNavigate();const dashboard=a.role==='admin'?'/admin':a.role==='provider'?'/provider':'/customer/bookings';return <><div className="connected-bar">{env.mode==='development'&&<span>Development</span>}<span>{navigator.onLine?'Connected account mode':'Offline — authentication is unavailable'}</span></div><header className="site-header"><Link className="brand" to="/"><span>O</span>{BRAND.name}</Link><nav><NavLink to="/search">Find openings</NavLink><NavLink to="/how-it-works">How it works</NavLink><NavLink to="/trust">Trust & safety</NavLink>{a.isAuthenticated&&<NavLink to={dashboard}>Dashboard</NavLink>}</nav>{a.isLoading?<span role="status">Loading account…</span>:a.isAuthenticated?<div className="account-actions"><Link to={a.role==='customer'?'/customer/profile':dashboard}>{a.profile?.display_name||a.user?.email||'Account'}</Link><button className="button small" onClick={()=>a.signOut().then(()=>nav('/'))}>Sign out</button></div>:<div className="account-actions"><Link to="/login">Log in</Link><Link className="button small" to="/register">Create account</Link></div>}</header><main><Routes><Route path="/" element={<ConnectedHome/>}/><Route path="/search" element={<SearchPage/>}/><Route path="/opening/:id" element={<Detail/>}/><Route path="/login" element={<LoginPage/>}/><Route path="/register" element={<RegisterPage/>}/><Route path="/forgot-password" element={<ForgotPasswordPage/>}/><Route path="/reset-password" element={<ResetPasswordPage/>}/><Route path="/verify-email" element={<VerifyEmailPage/>}/><Route path="/account-status" element={<AccountStatusPage/>}/><Route path="/customer/profile" element={<RequireCustomer><CustomerProfilePage/></RequireCustomer>}/><Route path="/customer/bookings" element={<RequireCustomer><CustomerBookings/></RequireCustomer>}/><Route path="/customer/saved" element={<RequireCustomer><Saved/></RequireCustomer>}/><Route path="/book/:id" element={<RequireCustomer><BookingFlow/></RequireCustomer>}/><Route path="/provider/onboarding" element={<RequireProvider><Onboarding/></RequireProvider>}/><Route path="/provider/application-status" element={<RequireProvider><ProviderApplicationStatus/></RequireProvider>}/><Route path="/provider" element={<RequireApprovedProvider><ProviderDashboard/></RequireApprovedProvider>}/><Route path="/provider/openings/new" element={<RequireApprovedProvider><PostOpening/></RequireApprovedProvider>}/><Route path="/provider/schedule" element={<RequireApprovedProvider><Schedule/></RequireApprovedProvider>}/><Route path="/provider/earnings" element={<RequireApprovedProvider><Earnings/></RequireApprovedProvider>}/><Route path="/admin" element={<RequireAdmin><Admin/></RequireAdmin>}/><Route path="/trust" element={<Trust/>}/><Route path="/how-it-works" element={<How/>}/><Route path="/about" element={<About/>}/><Route path="*" element={<Navigate to="/"/>}/></Routes></main><footer className="footer"><div><strong>{BRAND.name}</strong><p>{BRAND.tagline}</p></div><p>Connected accounts · Cincinnati & Northern Kentucky</p></footer></>}
+-function ConnectedHome(){const a=useAuth();return <><section className="hero"><div className="hero-copy"><Badge tone="lime">● Specific local openings</Badge><h1>Local help, available when you need it.</h1><p>Browse trusted local service providers with openings today or turn unused provider time into opportunity.</p><div className="hero-actions"><Link className="button large" to="/search">Find an opening <ArrowRight/></Link>{!a.isAuthenticated&&<><Link className="button secondary large" to="/register">Create customer account</Link><Link className="button secondary large" to="/register">Become a provider</Link><Link className="button ghost large" to="/login">Log in</Link></>}{a.role==='customer'&&<><Link className="button secondary large" to="/customer/bookings">My bookings</Link><Link className="button secondary large" to="/customer/saved">Saved providers</Link></>}{a.role==='provider'&&<Link className="button secondary large" to={a.providerApplicationStatus==='approved'?'/provider':'/provider/onboarding'}>{a.providerApplicationStatus==='approved'?'Provider dashboard':'Continue onboarding'}</Link>}{a.role==='admin'&&<Link className="button secondary large" to="/admin">Admin dashboard</Link>}</div></div></section><section className="section"><div className="eyebrow">WHY OPENSLOT</div><h2>Not just a provider. A time you can book.</h2><p className="lead">Specific availability, clear scope, and connected accounts reduce phone tag.</p></section></>}
++function ConnectedShell(){const a=useAuth(),nav=useNavigate();const dashboard=a.role==='admin'?'/admin':a.role==='provider'?'/provider':'/customer/bookings';useEffect(()=>{if(a.isAuthenticated&&a.profile&&!a.profile.role_selected_at)nav('/choose-role',{replace:true})},[a.isAuthenticated,a.profile,nav]);const mobileRole:Role=a.role||'customer';return <><div className="connected-bar">{env.mode==='development'&&<span>Development</span>}<span>{navigator.onLine?'Secure connected marketplace':'Offline — authentication is unavailable'}</span></div><header className="site-header"><Link className="brand" to="/"><span>O</span>{BRAND.name}</Link><nav><NavLink to="/search">Explore openings</NavLink><NavLink to="/how-it-works">How it works</NavLink><NavLink to="/trust">Safety</NavLink>{a.role==='customer'&&<NavLink to="/customer/bookings">Bookings</NavLink>}{a.role==='provider'&&<NavLink to={dashboard}>Provider workspace</NavLink>}{a.role==='admin'&&<NavLink to="/admin">Operations</NavLink>}</nav>{a.isLoading?<span role="status">Loading account…</span>:a.isAuthenticated?<div className="account-actions"><Link to={a.role==='customer'?'/customer/profile':dashboard}>{a.profile?.display_name||a.user?.email||'Account'}</Link><button className="button small" onClick={()=>a.signOut().then(()=>nav('/'))}>Sign out</button></div>:<div className="account-actions"><Link to="/login">Log in</Link><Link className="button small" to="/register">Get started</Link></div>}</header><main><Routes><Route path="/" element={<ConnectedHome/>}/><Route path="/search" element={<SearchPage/>}/><Route path="/opening/:id" element={<Detail/>}/><Route path="/login" element={<LoginPage/>}/><Route path="/register" element={<RegisterPage/>}/><Route path="/auth/callback" element={<OAuthCallbackPage/>}/><Route path="/choose-role" element={<RoleSelectionPage/>}/><Route path="/forgot-password" element={<ForgotPasswordPage/>}/><Route path="/reset-password" element={<ResetPasswordPage/>}/><Route path="/verify-email" element={<VerifyEmailPage/>}/><Route path="/account-status" element={<AccountStatusPage/>}/><Route path="/customer/profile" element={<RequireCustomer><CustomerProfilePage/></RequireCustomer>}/><Route path="/customer/bookings" element={<RequireCustomer><CustomerBookings/></RequireCustomer>}/><Route path="/customer/saved" element={<RequireCustomer><Saved/></RequireCustomer>}/><Route path="/book/:id" element={<RequireCustomer><BookingFlow/></RequireCustomer>}/><Route path="/provider/onboarding" element={<RequireProvider><Onboarding/></RequireProvider>}/><Route path="/provider/application-status" element={<RequireProvider><ProviderApplicationStatus/></RequireProvider>}/><Route path="/provider" element={<RequireApprovedProvider><ProviderDashboard/></RequireApprovedProvider>}/><Route path="/provider/openings/new" element={<RequireApprovedProvider><PostOpening/></RequireApprovedProvider>}/><Route path="/provider/schedule" element={<RequireApprovedProvider><Schedule/></RequireApprovedProvider>}/><Route path="/provider/earnings" element={<RequireApprovedProvider><Earnings/></RequireApprovedProvider>}/><Route path="/admin" element={<RequireAdmin><Admin/></RequireAdmin>}/><Route path="/trust" element={<Trust/>}/><Route path="/how-it-works" element={<How/>}/><Route path="/about" element={<About/>}/><Route path="*" element={<Navigate to="/"/>}/></Routes></main>{a.isAuthenticated&&a.profile?.role_selected_at&&<BottomNav role={mobileRole}/>}<footer className="footer"><div><strong>{BRAND.name}</strong><p>{BRAND.tagline}</p></div><p>Connected accounts · Cincinnati & Northern Kentucky</p></footer></>}
++function ConnectedHome(){const a=useAuth(),items=useStore().openings.slice(0,3);return <><section className="hero marketplace-hero"><div className="hero-copy"><Badge tone="lime">● Openings available around Cincinnati</Badge><h1>Good local help.<br/>Right when you need it.</h1><p>Shop real appointment times from nearby providers. Compare the work, the price, and the person—then choose the opening that fits.</p><div className="hero-actions"><Link className="button large" to="/search">Explore openings <ArrowRight/></Link>{!a.isAuthenticated&&<Link className="button secondary large" to="/register">Offer your time</Link>}{a.role==='provider'&&<Link className="button secondary large" to={a.providerApplicationStatus==='approved'?'/provider/openings/new':'/provider/onboarding'}>Manage availability</Link>}</div><div className="trust-row"><span><ShieldCheck/> Profile signals</span><span><DollarSign/> Upfront demo pricing</span><span><Clock3/> Bookable time slots</span></div></div><div className="hero-visual"><div className="float-card"><span className="pulse"/> New today · 3:00 PM</div><OpeningCard opening={items[0]} compact/></div></section><section className="section marketplace-feed"><div className="page-heading"><div><div className="eyebrow">OPEN NEAR YOU</div><h2>Make today easier.</h2><p className="lead">Fresh local availability, presented as times—not directories.</p></div><Link className="text-button" to="/search">See every opening →</Link></div><div className="opening-grid">{items.map(item=><OpeningCard key={item.id} opening={item}/>)}</div></section><section className="section tint marketplace-split"><div><div className="eyebrow">FOR SERVICE PROFESSIONALS</div><h2>Put empty hours back to work.</h2><p className="lead">Publish a real gap, reach a nearby customer, and build a smarter week without discount-marketplace noise.</p><Link className="button" to={a.isAuthenticated?'/provider/onboarding':'/register'}>Start offering openings</Link></div><div className="feature-strip">{[['01','Post a window','Set scope, area, and price.'],['02','Meet the right customer','OpenSlot surfaces useful nearby demand.'],['03','Build your route','Turn downtime into dependable work.']].map(x=><div key={x[0]}><b>{x[0]}</b><h3>{x[1]}</h3><p>{x[2]}</p></div>)}</div></section></>}
+ export default function App(){return <HashRouter>{env.mode==='demo'?<DemoShell/>:<AuthProvider><ConnectedShell/></AuthProvider>}</HashRouter>}
+diff --git a/src/auth/AuthProvider.tsx b/src/auth/AuthProvider.tsx
+index c848aac..aca9eca 100644
+--- a/src/auth/AuthProvider.tsx
++++ b/src/auth/AuthProvider.tsx
+@@ -3,10 +3,10 @@ import type {Session,User} from '@supabase/supabase-js';
+ import {authService,type RegistrationRole,normalizeAuthError} from '../services/authService';
+ import {profileService,type Profile,type ProviderProfile} from '../services/profileService';
+ 
+-type AuthContextValue={session:Session|null;user:User|null;profile:Profile|null;role:Profile['role']|null;accountStatus:string|null;providerApplicationStatus:ProviderProfile['application_status']|null;isAuthenticated:boolean;isLoading:boolean;profileLoading:boolean;authError:string|null;signUp:(i:{email:string;password:string;fullName:string;role:RegistrationRole})=>Promise<{needsVerification:boolean}>;signIn:(e:string,p:string)=>Promise<void>;signOut:()=>Promise<void>;requestPasswordReset:(e:string)=>Promise<void>;updatePassword:(p:string)=>Promise<void>;resendVerification:(e:string)=>Promise<void>;refreshProfile:()=>Promise<void>};
++type AuthContextValue={session:Session|null;user:User|null;profile:Profile|null;role:Profile['role']|null;accountStatus:string|null;providerApplicationStatus:ProviderProfile['application_status']|null;isAuthenticated:boolean;isLoading:boolean;profileLoading:boolean;authError:string|null;signUp:(i:{email:string;password:string;fullName:string;role:RegistrationRole})=>Promise<{needsVerification:boolean}>;signIn:(e:string,p:string)=>Promise<void>;signInWithOAuth:(p:'google'|'apple')=>Promise<void>;selectInitialRole:(r:'customer'|'provider')=>Promise<void>;signOut:()=>Promise<void>;requestPasswordReset:(e:string)=>Promise<void>;updatePassword:(p:string)=>Promise<void>;resendVerification:(e:string)=>Promise<void>;refreshProfile:()=>Promise<void>};
+ const AuthContext=createContext<AuthContextValue|null>(null);
+ export function AuthProvider({children}:{children:ReactNode}){const [session,setSession]=useState<Session|null>(null),[profile,setProfile]=useState<Profile|null>(null),[provider,setProvider]=useState<ProviderProfile|null>(null),[isLoading,setLoading]=useState(true),[profileLoading,setProfileLoading]=useState(false),[authError,setError]=useState<string|null>(null);const fetchRef=useRef<Promise<void>|null>(null);
+  const refreshProfile=useCallback(async()=>{if(fetchRef.current)return fetchRef.current;const job=(async()=>{setProfileLoading(true);try{let found:Profile|null=null;for(let i=0;i<4&&!found;i++){found=await profileService.loadCurrentProfile();if(!found)await new Promise(r=>setTimeout(r,250*(i+1)))}setProfile(found);setProvider(found?.role==='provider'?await profileService.loadProviderProfile():null);if(!found)setError('Your account is signed in, but its OpenSlot profile is not ready. Try again shortly.')}catch(e){setError(normalizeAuthError(e).message)}finally{setProfileLoading(false);fetchRef.current=null}})();fetchRef.current=job;return job},[]);
+  useEffect(()=>{let alive=true;authService.getSession().then(async({session:s})=>{if(!alive)return;setSession(s);if(s)await refreshProfile()}).catch(e=>setError(normalizeAuthError(e).message)).finally(()=>alive&&setLoading(false));const {data:{subscription}}=authService.subscribeToAuthChanges((event,s)=>{if(!alive)return;setSession(s);if(!s){setProfile(null);setProvider(null)}else if(event==='SIGNED_IN'||event==='USER_UPDATED')void refreshProfile()});return()=>{alive=false;subscription.unsubscribe()}},[refreshProfile]);
+- const value=useMemo<AuthContextValue>(()=>({session,user:session?.user??null,profile,role:profile?.role??null,accountStatus:profile?.account_status??null,providerApplicationStatus:provider?.application_status??null,isAuthenticated:Boolean(session),isLoading,profileLoading,authError,async signUp(i){setError(null);try{const {session:s}=await authService.signUp(i);setSession(s);if(s)await refreshProfile();return{needsVerification:!s}}catch(e){const x=normalizeAuthError(e);setError(x.message);throw x}},async signIn(e,p){setError(null);try{const {session:s}=await authService.signIn(e,p);setSession(s);await refreshProfile()}catch(x){const e=normalizeAuthError(x);setError(e.message);throw e}},async signOut(){setError(null);try{await authService.signOut();setSession(null);setProfile(null);setProvider(null)}catch(e){setError(normalizeAuthError(e).message);throw e}},async requestPasswordReset(e){try{await authService.requestPasswordReset(e)}catch(x){setError(normalizeAuthError(x).message);throw x}},async updatePassword(p){try{await authService.updatePassword(p)}catch(x){setError(normalizeAuthError(x).message);throw x}},async resendVerification(e){try{await authService.resendVerification(e)}catch(x){setError(normalizeAuthError(x).message);throw x}},refreshProfile}),[session,profile,provider,isLoading,profileLoading,authError,refreshProfile]);return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>}
++ const value=useMemo<AuthContextValue>(()=>({session,user:session?.user??null,profile,role:profile?.role??null,accountStatus:profile?.account_status??null,providerApplicationStatus:provider?.application_status??null,isAuthenticated:Boolean(session),isLoading,profileLoading,authError,async signUp(i){setError(null);try{const {session:s}=await authService.signUp(i);setSession(s);if(s)await refreshProfile();return{needsVerification:!s}}catch(e){const x=normalizeAuthError(e);setError(x.message);throw x}},async signIn(e,p){setError(null);try{const {session:s}=await authService.signIn(e,p);setSession(s);await refreshProfile()}catch(x){const e=normalizeAuthError(x);setError(e.message);throw e}},async signInWithOAuth(p){setError(null);try{await authService.signInWithOAuth(p)}catch(x){const e=normalizeAuthError(x);setError(e.message);throw e}},async selectInitialRole(r){setError(null);try{await profileService.selectInitialRole(r);await refreshProfile()}catch(x){const e=normalizeAuthError(x);setError(e.message);throw e}},async signOut(){setError(null);try{await authService.signOut();setSession(null);setProfile(null);setProvider(null)}catch(e){setError(normalizeAuthError(e).message);throw e}},async requestPasswordReset(e){try{await authService.requestPasswordReset(e)}catch(x){setError(normalizeAuthError(x).message);throw x}},async updatePassword(p){try{await authService.updatePassword(p)}catch(x){setError(normalizeAuthError(x).message);throw x}},async resendVerification(e){try{await authService.resendVerification(e)}catch(x){setError(normalizeAuthError(x).message);throw x}},refreshProfile}),[session,profile,provider,isLoading,profileLoading,authError,refreshProfile]);return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>}
+ export function useAuth(){const value=useContext(AuthContext);if(!value)throw new Error('useAuth must be used inside AuthProvider');return value}
+diff --git a/src/auth/routing.test.ts b/src/auth/routing.test.ts
+index b5913f7..d3644a6 100644
+--- a/src/auth/routing.test.ts
++++ b/src/auth/routing.test.ts
+@@ -1,3 +1,3 @@
+ import {describe,expect,it} from 'vitest';import {accountDestination} from './routing';
+-const profile=(role:'customer'|'provider'|'admin',account_status='active')=>({id:'1',role,display_name:'Test',email:'test@example.com',phone:'555',account_status});
++const profile=(role:'customer'|'provider'|'admin',account_status='active')=>({id:'1',role,display_name:'Test',email:'test@example.com',phone:'555',role_selected_at:'2026-07-29T00:00:00Z',account_status});
+ describe('account routing',()=>{it('routes incomplete customers to profile completion',()=>expect(accountDestination(profile('customer'),null,false)).toBe('/customer/profile'));it('routes approved providers to dashboard',()=>expect(accountDestination(profile('provider'),'approved')).toBe('/provider'));it('routes pending providers to status',()=>expect(accountDestination(profile('provider'),'pending')).toBe('/provider/application-status'));it('blocks suspended accounts',()=>expect(accountDestination(profile('admin','suspended'),null)).toBe('/account-status'));it('routes active administrators to admin',()=>expect(accountDestination(profile('admin'),null)).toBe('/admin'))});
+diff --git a/src/auth/socialAuth.test.ts b/src/auth/socialAuth.test.ts
+new file mode 100644
+index 0000000..b99d545
+--- /dev/null
++++ b/src/auth/socialAuth.test.ts
+@@ -0,0 +1,13 @@
++import {describe,expect,it} from 'vitest';
++import {accountDestination} from './routing';
++
++describe('social account onboarding',()=>{
++  it('keeps an unselected social profile out of role dashboards',()=>{
++    const profile={id:'social',role:'customer' as const,display_name:'Social User',email:'social@example.com',phone:null,account_status:'active',role_selected_at:null};
++    expect(profile.role_selected_at).toBeNull();
++  });
++  it('preserves normal routing after a role is securely selected',()=>{
++    const profile={id:'social',role:'provider' as const,display_name:'Provider',email:'provider@example.com',phone:null,account_status:'active',role_selected_at:'2026-07-29T00:00:00Z'};
++    expect(accountDestination(profile,'draft')).toBe('/provider/onboarding');
++  });
++});
+diff --git a/src/pages/AuthPages.tsx b/src/pages/AuthPages.tsx
+index 2e15a47..26970cd 100644
+--- a/src/pages/AuthPages.tsx
++++ b/src/pages/AuthPages.tsx
+@@ -1,11 +1,17 @@
+ import {useEffect,useRef,useState,type FormEvent} from 'react';import {Link,Navigate,useLocation,useNavigate} from 'react-router-dom';import {useAuth} from '../auth/AuthProvider';import {accountDestination} from '../auth/routing';import {profileService} from '../services/profileService';
++import {authService} from '../services/authService';
+ const strong=(p:string)=>p.length>=8&&/[A-Za-z]/.test(p)&&/\d/.test(p);
+-function AuthLayout({title,intro,children}:{title:string;intro:string;children:React.ReactNode}){return <div className="page narrow auth-page"><div className="eyebrow">CONNECTED ACCOUNT</div><h1>{title}</h1><p className="lead">{intro}</p>{children}</div>}
+-export function LoginPage(){const a=useAuth(),nav=useNavigate(),loc=useLocation(),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[show,setShow]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');const err=useRef<HTMLDivElement>(null);if(a.isAuthenticated&&!busy)return <Navigate to={accountDestination(a.profile,a.providerApplicationStatus)} replace/>;async function submit(e:FormEvent){e.preventDefault();setBusy(true);setError('');try{await a.signIn(email,password);nav((loc.state as {from?:string}|null)?.from||accountDestination(a.profile,a.providerApplicationStatus),{replace:true})}catch(x){setError(x instanceof Error?x.message:'Sign in failed.')}finally{setBusy(false)}}useEffect(()=>{if(error)err.current?.focus()},[error]);return <AuthLayout title="Welcome back" intro="Sign in to your OpenSlot account."><form className="flow-card auth-form" onSubmit={submit}>{error&&<div className="error-summary" role="alert" tabIndex={-1} ref={err}>{error}</div>}<label>Email<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Password<div className="password-field"><input type={show?'text':'password'} autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)}/><button type="button" aria-label={show?'Hide password':'Show password'} onClick={()=>setShow(!show)}>{show?'Hide':'Show'}</button></div></label><button className="button large full" disabled={busy||!navigator.onLine}>{busy?'Signing in…':'Log in'}</button><div className="auth-links"><Link to="/forgot-password">Forgot password?</Link><Link to="/register">Create an account</Link></div></form></AuthLayout>}
+-export function RegisterPage(){const a=useAuth(),nav=useNavigate(),[v,setV]=useState({name:'',email:'',password:'',confirm:'',role:'customer' as 'customer'|'provider',terms:false,privacy:false}),[show,setShow]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');async function submit(e:FormEvent){e.preventDefault();let message='';if(!v.name.trim())message='Enter your full name.';else if(!strong(v.password))message='Use at least 8 characters, including a letter and a number.';else if(v.password!==v.confirm)message='Passwords do not match.';else if(!v.terms||!v.privacy)message='Accept the Terms and Privacy Policy to continue.';if(message){setError(message);return}setBusy(true);try{const r=await a.signUp({email:v.email,password:v.password,fullName:v.name.trim(),role:v.role});nav(r.needsVerification?`/verify-email?email=${encodeURIComponent(v.email)}`:v.role==='provider'?'/provider/onboarding':'/customer/profile')}catch(x){setError(x instanceof Error?x.message:'Registration failed.')}finally{setBusy(false)}}return <AuthLayout title="Create your account" intro="Book local help or turn an open time into your next job."><form className="flow-card auth-form" onSubmit={submit} noValidate>{error&&<div className="error-summary" role="alert" tabIndex={-1}>{error}</div>}<label>Full name<input autoComplete="name" required value={v.name} onChange={e=>setV({...v,name:e.target.value})}/></label><label>Email<input type="email" autoComplete="email" required value={v.email} onChange={e=>setV({...v,email:e.target.value})}/></label><fieldset><legend>Account type</legend><label><input type="radio" checked={v.role==='customer'} onChange={()=>setV({...v,role:'customer'})}/> Customer</label><label><input type="radio" checked={v.role==='provider'} onChange={()=>setV({...v,role:'provider'})}/> Provider</label></fieldset><label>Password<div className="password-field"><input type={show?'text':'password'} autoComplete="new-password" required value={v.password} onChange={e=>setV({...v,password:e.target.value})}/><button type="button" aria-label={show?'Hide password':'Show password'} onClick={()=>setShow(!show)}>{show?'Hide':'Show'}</button></div></label><label>Confirm password<input type="password" autoComplete="new-password" required value={v.confirm} onChange={e=>setV({...v,confirm:e.target.value})}/></label><label className="check"><input type="checkbox" checked={v.terms} onChange={e=>setV({...v,terms:e.target.checked})}/> I agree to the Terms.</label><label className="check"><input type="checkbox" checked={v.privacy} onChange={e=>setV({...v,privacy:e.target.checked})}/> I acknowledge the Privacy Policy.</label><button className="button large full" disabled={busy||!navigator.onLine}>{busy?'Creating account…':'Create account'}</button><p>Already registered? <Link to="/login">Log in</Link></p></form></AuthLayout>}
++function AuthLayout({title,intro,children}:{title:string;intro:string;children:React.ReactNode}){return <div className="auth-stage"><aside className="auth-promise"><Link className="brand inverse" to="/"><span>O</span>OpenSlot</Link><p className="eyebrow">LOCAL TIME, PUT TO WORK</p><h2>Book the opening, not the waiting list.</h2><p>Real appointment windows from trusted local providers—clear, nearby, and ready when you are.</p></aside><div className="auth-page"><Link className="auth-back" to="/">← Back to marketplace</Link><div className="eyebrow">SECURE ACCOUNT</div><h1>{title}</h1><p className="lead">{intro}</p>{children}</div></div>}
++function SocialButtons({busy,onStart}:{busy:boolean;onStart:(provider:'google'|'apple')=>void}){return <><div className="social-auth"><button type="button" disabled={busy} onClick={()=>onStart('google')}><b className="google-mark">G</b> Continue with Google</button><button type="button" disabled={busy} onClick={()=>onStart('apple')}><b className="apple-mark">●</b> Continue with Apple</button></div><div className="auth-divider"><span>or continue with email</span></div></>}
++export function LoginPage(){const a=useAuth(),nav=useNavigate(),loc=useLocation(),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[show,setShow]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');const err=useRef<HTMLDivElement>(null);if(a.isAuthenticated&&!busy)return <Navigate to={accountDestination(a.profile,a.providerApplicationStatus)} replace/>;async function submit(e:FormEvent){e.preventDefault();setBusy(true);setError('');try{await a.signIn(email,password);nav((loc.state as {from?:string}|null)?.from||accountDestination(a.profile,a.providerApplicationStatus),{replace:true})}catch(x){setError(x instanceof Error?x.message:'Sign in failed.')}finally{setBusy(false)}}useEffect(()=>{if(error)err.current?.focus()},[error]);return <AuthLayout title="Welcome back" intro="Sign in to your OpenSlot account."><form className="flow-card auth-form" onSubmit={submit}><SocialButtons busy={busy} onStart={provider=>{setBusy(true);setError('');a.signInWithOAuth(provider).catch(e=>{setError(e.message);setBusy(false)})}}/>{error&&<div className="error-summary" role="alert" tabIndex={-1} ref={err}>{error}</div>}<label>Email<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Password<div className="password-field"><input type={show?'text':'password'} autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)}/><button type="button" aria-label={show?'Hide password':'Show password'} onClick={()=>setShow(!show)}>{show?'Hide':'Show'}</button></div></label><button className="button large full" disabled={busy||!navigator.onLine}>{busy?'Signing in…':'Log in'}</button><div className="auth-links"><Link to="/forgot-password">Forgot password?</Link><Link to="/register">Create an account</Link></div></form></AuthLayout>}
++export function RegisterPage(){const a=useAuth(),nav=useNavigate(),[v,setV]=useState({name:'',email:'',password:'',confirm:'',role:'customer' as 'customer'|'provider',terms:false,privacy:false}),[show,setShow]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');async function submit(e:FormEvent){e.preventDefault();let message='';if(!v.name.trim())message='Enter your full name.';else if(!strong(v.password))message='Use at least 8 characters, including a letter and a number.';else if(v.password!==v.confirm)message='Passwords do not match.';else if(!v.terms||!v.privacy)message='Accept the Terms and Privacy Policy to continue.';if(message){setError(message);return}setBusy(true);try{const r=await a.signUp({email:v.email,password:v.password,fullName:v.name.trim(),role:v.role});nav(r.needsVerification?`/verify-email?email=${encodeURIComponent(v.email)}`:v.role==='provider'?'/provider/onboarding':'/customer/profile')}catch(x){setError(x instanceof Error?x.message:'Registration failed.')}finally{setBusy(false)}}return <AuthLayout title="Create your account" intro="Book local help or turn an open time into your next job."><form className="flow-card auth-form" onSubmit={submit} noValidate><SocialButtons busy={busy} onStart={provider=>{setBusy(true);setError('');a.signInWithOAuth(provider).catch(e=>{setError(e.message);setBusy(false)})}}/>{error&&<div className="error-summary" role="alert" tabIndex={-1}>{error}</div>}<label>Full name<input autoComplete="name" required value={v.name} onChange={e=>setV({...v,name:e.target.value})}/></label><label>Email<input type="email" autoComplete="email" required value={v.email} onChange={e=>setV({...v,email:e.target.value})}/></label><fieldset><legend>Account type</legend><label><input type="radio" checked={v.role==='customer'} onChange={()=>setV({...v,role:'customer'})}/> Customer</label><label><input type="radio" checked={v.role==='provider'} onChange={()=>setV({...v,role:'provider'})}/> Provider</label></fieldset><label>Password<div className="password-field"><input type={show?'text':'password'} autoComplete="new-password" required value={v.password} onChange={e=>setV({...v,password:e.target.value})}/><button type="button" aria-label={show?'Hide password':'Show password'} onClick={()=>setShow(!show)}>{show?'Hide':'Show'}</button></div></label><label>Confirm password<input type="password" autoComplete="new-password" required value={v.confirm} onChange={e=>setV({...v,confirm:e.target.value})}/></label><label className="check"><input type="checkbox" checked={v.terms} onChange={e=>setV({...v,terms:e.target.checked})}/> I agree to the Terms.</label><label className="check"><input type="checkbox" checked={v.privacy} onChange={e=>setV({...v,privacy:e.target.checked})}/> I acknowledge the Privacy Policy.</label><button className="button large full" disabled={busy||!navigator.onLine}>{busy?'Creating account…':'Create account'}</button><p>Already registered? <Link to="/login">Log in</Link></p></form></AuthLayout>}
+ export function ForgotPasswordPage(){const a=useAuth(),[email,setEmail]=useState(''),[sent,setSent]=useState(false),[busy,setBusy]=useState(false);async function submit(e:FormEvent){e.preventDefault();setBusy(true);try{await a.requestPasswordReset(email);setSent(true)}finally{setBusy(false)}}return <AuthLayout title="Reset your password" intro="We’ll email password reset instructions if an account can receive them.">{sent?<div className="panel auth-state" role="status" tabIndex={-1}><h2>Check your email</h2><p>If an eligible account exists, password reset instructions are on the way.</p><Link className="button" to="/login">Return to login</Link></div>:<form className="flow-card auth-form" onSubmit={submit}><label>Email<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label><button className="button large full" disabled={busy||!navigator.onLine}>{busy?'Sending…':'Send reset instructions'}</button></form>}</AuthLayout>}
+ export function ResetPasswordPage(){const a=useAuth(),[p,setP]=useState(''),[c,setC]=useState(''),[busy,setBusy]=useState(false),[done,setDone]=useState(false),[error,setError]=useState('');async function submit(e:FormEvent){e.preventDefault();if(!strong(p)){setError('Use at least 8 characters, including a letter and a number.');return}if(p!==c){setError('Passwords do not match.');return}setBusy(true);try{await a.updatePassword(p);setDone(true)}catch(x){setError(x instanceof Error?x.message:'This recovery link is invalid or expired.')}finally{setBusy(false)}}return <AuthLayout title="Choose a new password" intro="Your recovery link must be open in this browser.">{done?<div className="panel" role="status"><h2>Password updated</h2><Link className="button" to="/login">Continue to login</Link></div>:<form className="flow-card auth-form" onSubmit={submit}>{!a.isLoading&&!a.session&&<div className="error-summary" role="alert">This recovery link is invalid or expired. Request another email.</div>}{error&&<div className="error-summary" role="alert">{error}</div>}<label>New password<input type="password" autoComplete="new-password" value={p} onChange={e=>setP(e.target.value)} required/></label><label>Confirm new password<input type="password" autoComplete="new-password" value={c} onChange={e=>setC(e.target.value)} required/></label><button className="button large full" disabled={busy||!a.session}>{busy?'Updating…':'Update password'}</button></form>}</AuthLayout>}
+ export function VerifyEmailPage(){const a=useAuth(),query=new URLSearchParams(useLocation().search),email=query.get('email')||'',[message,setMessage]=useState('');return <AuthLayout title="Verify your email" intro="Open the verification link we sent before signing in."><div className="panel auth-state"><p role="status">{message||`Check ${email||'your inbox'} for a verification message.`}</p><button className="button" disabled={!email} onClick={()=>a.resendVerification(email).then(()=>setMessage('A new verification message was requested.')).catch(e=>setMessage(e.message))}>Resend verification</button> <Link className="button secondary" to="/login">Return to login</Link></div></AuthLayout>}
+ export function AccountStatusPage(){const a=useAuth();const status=a.profile? a.accountStatus||'incomplete':'incomplete';const copy:Record<string,string>={active:'Your account is active.',incomplete:'Your OpenSlot profile is not ready yet.',pending:'Your application is being reviewed.',more_information:'OpenSlot needs additional information.',rejected:'Your provider application was not approved.',paused:'Your account is paused.',suspended:'Your account is suspended. Contact support for help.',closed:'Your account is closed.'};return <AuthLayout title="Account status" intro={copy[status]||`Your current account status is ${status}.`}><div className="panel auth-state"><h2>{status.replace('_',' ')}</h2><p>{status==='incomplete'?'Refresh after a moment; profile creation can take a few seconds.':'Normal dashboards remain unavailable when account access is restricted.'}</p>{status==='incomplete'&&<button className="button" onClick={()=>a.refreshProfile()}>Check again</button>} <a className="button secondary" href="mailto:support@openslot.example">Contact support</a> <button className="button ghost" onClick={()=>a.signOut()}>Sign out</button></div></AuthLayout>}
+ export function CustomerProfilePage(){const a=useAuth(),[name,setName]=useState(a.profile?.display_name||''),[phone,setPhone]=useState(a.profile?.phone||''),[contact,setContact]=useState<'email'|'phone'|'text'>('email'),[message,setMessage]=useState('');async function save(e:FormEvent){e.preventDefault();await profileService.updateProfile({display_name:name,phone});await profileService.updateCustomerProfile({preferred_contact_method:contact});await a.refreshProfile();setMessage('Profile details saved. Add a default service address before booking.')};return <div className="page narrow"><div className="eyebrow">CUSTOMER ACCOUNT</div><h1>Complete your profile</h1><form className="flow-card auth-form" onSubmit={save}><label>Full name<input autoComplete="name" required value={name} onChange={e=>setName(e.target.value)}/></label><label>Phone<input type="tel" autoComplete="tel" required value={phone} onChange={e=>setPhone(e.target.value)}/></label><label>Preferred contact method<select value={contact} onChange={e=>setContact(e.target.value as typeof contact)}><option value="email">Email</option><option value="text">Text</option><option value="phone">Phone</option></select></label><div className="notice">A default service address is still required to complete a connected booking.</div><button className="button">Save profile</button>{message&&<p role="status">{message}</p>}</form></div>}
+ export function ProviderApplicationStatus(){const a=useAuth();return <div className="page narrow"><div className="eyebrow">PROVIDER APPLICATION</div><h1>Application status</h1><div className="panel"><h2>{(a.providerApplicationStatus||'draft').replace('_',' ')}</h2><p>Approval is required before you can publish openings.</p>{a.providerApplicationStatus==='draft'&&<Link className="button" to="/provider/onboarding">Continue onboarding</Link>}</div></div>}
++
++export function OAuthCallbackPage(){const a=useAuth(),nav=useNavigate(),location=useLocation(),started=useRef(false),[error,setError]=useState('');useEffect(()=>{if(started.current)return;started.current=true;const hashQuery=location.search;const code=new URLSearchParams(window.location.search).get('code')||new URLSearchParams(hashQuery).get('code');if(!code){if(a.session)nav(a.profile?.role_selected_at?accountDestination(a.profile,a.providerApplicationStatus):'/choose-role',{replace:true});else setError('The social sign-in response is missing or expired. Please try again.');return}(code?authService.completeOAuthCallback(code):Promise.resolve()).then(()=>a.refreshProfile()).then(()=>nav(a.profile?.role_selected_at?accountDestination(a.profile,a.providerApplicationStatus):'/choose-role',{replace:true})).catch(e=>setError(e instanceof Error?e.message:'Social sign-in could not be completed.'))},[a,location.search,nav]);return <AuthLayout title="Finishing sign in" intro="Securely connecting your OpenSlot account."><div className="panel auth-state" role="status">{error?<><p className="error-summary" role="alert">{error}</p><Link className="button" to="/login">Return to login</Link></>:<p>Checking your account…</p>}</div></AuthLayout>}
++
++export function RoleSelectionPage(){const a=useAuth(),nav=useNavigate(),[busy,setBusy]=useState(false),[error,setError]=useState('');if(!a.isLoading&&!a.isAuthenticated)return <Navigate to="/login" replace/>;if(a.profile?.role_selected_at)return <Navigate to={accountDestination(a.profile,a.providerApplicationStatus)} replace/>;async function choose(role:'customer'|'provider'){setBusy(true);setError('');try{await a.selectInitialRole(role);nav(role==='provider'?'/provider/onboarding':'/customer/profile',{replace:true})}catch(e){setError(e instanceof Error?e.message:'Your role could not be saved.')}finally{setBusy(false)}}return <AuthLayout title="How will you use OpenSlot?" intro="Choose once to personalize your account. For security, changing roles later requires support.">{error&&<div className="error-summary" role="alert">{error}</div>}<div className="role-choice"><button disabled={busy} onClick={()=>choose('customer')}><span>Find local help</span><strong>Continue as a customer</strong><small>Explore openings, save providers, and book service.</small></button><button disabled={busy} onClick={()=>choose('provider')}><span>Grow my schedule</span><strong>Continue as a provider</strong><small>Complete verification, post openings, and manage work.</small></button></div></AuthLayout>}
+diff --git a/src/services/authService.ts b/src/services/authService.ts
+index 8a87799..ad1d817 100644
+--- a/src/services/authService.ts
++++ b/src/services/authService.ts
+@@ -2,6 +2,8 @@ import type {AuthChangeEvent, Session} from '@supabase/supabase-js';
+ import {requireSupabase} from '../lib/supabase';
+ 
+ export type RegistrationRole='customer'|'provider';
++export type OAuthProvider='google'|'apple';
++export function authRedirect(path:string){return `${location.origin}${location.pathname}#${path}`}
+ export class AuthApplicationError extends Error { constructor(public code:string, message:string){super(message);this.name='AuthApplicationError'} }
+ export function normalizeAuthError(error:unknown):AuthApplicationError{
+  const raw=error instanceof Error?error.message.toLowerCase():'';
+@@ -20,6 +22,8 @@ async function result<T>(work:Promise<{data:T;error:unknown}>):Promise<T>{const
+ export const authService={
+  signUp:(input:{email:string;password:string;fullName:string;role:RegistrationRole})=>result(requireSupabase().auth.signUp({email:input.email,password:input.password,options:{data:{full_name:input.fullName,requested_role:input.role},emailRedirectTo:`${location.origin}${location.pathname}#/verify-email`}})),
+  signIn:(email:string,password:string)=>result(requireSupabase().auth.signInWithPassword({email,password})),
++ signInWithOAuth:(provider:OAuthProvider)=>result(requireSupabase().auth.signInWithOAuth({provider,options:{redirectTo:authRedirect('/auth/callback')}})),
++ completeOAuthCallback:(code:string)=>result(requireSupabase().auth.exchangeCodeForSession(code)),
+  signOut:()=>result(requireSupabase().auth.signOut()),
+  getSession:()=>result(requireSupabase().auth.getSession()),
+  getUser:()=>result(requireSupabase().auth.getUser()),
+diff --git a/src/services/profileService.ts b/src/services/profileService.ts
+index 2aa4dde..c5dc8c5 100644
+--- a/src/services/profileService.ts
++++ b/src/services/profileService.ts
+@@ -1,13 +1,14 @@
+ import {requireSupabase} from '../lib/supabase';
+ import {normalizeAuthError} from './authService';
+ export type UserRole='customer'|'provider'|'admin';
+-export interface Profile{id:string;role:UserRole;display_name:string|null;email:string|null;phone:string|null;account_status:string}
++export interface Profile{id:string;role:UserRole;display_name:string|null;email:string|null;phone:string|null;account_status:string;role_selected_at:string|null}
+ export interface CustomerProfile{user_id:string;default_address_id:string|null;preferred_contact_method:'email'|'phone'|'text'|null}
+ export interface ProviderProfile{user_id:string;business_name:string;application_status:'draft'|'pending'|'approved'|'rejected'|'paused'|'suspended'|'more_information'}
+ async function currentId(){const {data,error}=await requireSupabase().auth.getUser();if(error||!data.user)throw normalizeAuthError(error||new Error('session expired'));return data.user.id}
+ export const profileService={
+- async loadCurrentProfile(){const id=await currentId();const {data,error}=await requireSupabase().from('profiles').select('id,role,display_name,email,phone,account_status').eq('id',id).maybeSingle();if(error)throw normalizeAuthError(error);return data as Profile|null},
+- async updateProfile(input:{display_name?:string;phone?:string}){const id=await currentId();const {data,error}=await requireSupabase().from('profiles').update(input).eq('id',id).select('id,role,display_name,email,phone,account_status').single();if(error)throw normalizeAuthError(error);return data as Profile},
++ async loadCurrentProfile(){const id=await currentId();const {data,error}=await requireSupabase().from('profiles').select('id,role,display_name,email,phone,account_status,role_selected_at').eq('id',id).maybeSingle();if(error)throw normalizeAuthError(error);return data as Profile|null},
++ async updateProfile(input:{display_name?:string;phone?:string}){const id=await currentId();const {data,error}=await requireSupabase().from('profiles').update(input).eq('id',id).select('id,role,display_name,email,phone,account_status,role_selected_at').single();if(error)throw normalizeAuthError(error);return data as Profile},
++ async selectInitialRole(role:'customer'|'provider'){const {data,error}=await requireSupabase().rpc('select_initial_role',{requested_role:role});if(error)throw normalizeAuthError(error);return data as UserRole},
+  async loadCustomerProfile(){const id=await currentId();const {data,error}=await requireSupabase().from('customer_profiles').select('user_id,default_address_id,preferred_contact_method').eq('user_id',id).maybeSingle();if(error)throw normalizeAuthError(error);return data as CustomerProfile|null},
+  async updateCustomerProfile(input:{preferred_contact_method:'email'|'phone'|'text'}){const id=await currentId();const {data,error}=await requireSupabase().from('customer_profiles').upsert({user_id:id,...input}).select().single();if(error)throw normalizeAuthError(error);return data as CustomerProfile},
+  async loadProviderProfile(){const id=await currentId();const {data,error}=await requireSupabase().from('provider_profiles').select('user_id,business_name,application_status').eq('user_id',id).maybeSingle();if(error)throw normalizeAuthError(error);return data as ProviderProfile|null},
+diff --git a/src/styles.css b/src/styles.css
+index e7ad40e..7cad01b 100644
+--- a/src/styles.css
++++ b/src/styles.css
+@@ -3,3 +3,7 @@
+ /* Keep startup failures visible even when the application shell cannot render. */
+ .startup-error{min-height:100vh;display:grid;place-items:center;padding:24px;background:#f5f6f2}.startup-error .panel{max-width:680px;padding:32px}.startup-error h1{margin-top:0}
+ .connected-bar{min-height:32px;padding:.4rem 5vw;background:var(--dark);color:white;display:flex;justify-content:center;gap:1rem;font-size:.75rem}.connected-bar span:first-child{color:var(--lime);font-weight:800}.account-actions{display:flex;align-items:center;gap:.8rem;white-space:nowrap}.auth-page{max-width:680px}.auth-page h1{margin-bottom:.5rem}.auth-form{margin-top:2rem}.auth-form fieldset{border:1px solid var(--line);border-radius:10px;margin:1rem 0}.auth-form fieldset label{display:inline-flex;align-items:center;gap:.4rem;margin-right:1rem}.auth-form fieldset input,.auth-form .check input{width:auto;margin:0}.password-field{display:flex;position:relative}.password-field input{padding-right:5rem}.password-field button{position:absolute;right:.35rem;top:.75rem;border:0;background:transparent;color:var(--green);font-weight:700;min-height:36px}.auth-links{display:flex;justify-content:space-between;margin-top:1rem}.error-summary,.error{padding:1rem;background:#fff0ed;border:1px solid #c63f2f;border-radius:9px;color:#7b2016;overflow-wrap:anywhere}.auth-state{text-align:center}.button:disabled{opacity:.55;cursor:not-allowed}@media(max-width:800px){.connected-bar{justify-content:space-between}.account-actions>a{display:none}.account-actions{margin-left:auto}.auth-page{padding-top:2rem}.auth-form{padding:1.25rem}.auth-links{align-items:flex-start;flex-direction:column;gap:.8rem}}
++/* 0.3.2 marketplace and social-auth presentation */
++.marketplace-hero{background:radial-gradient(circle at 85% 15%,#1b765f 0,transparent 34%),linear-gradient(135deg,#092f27,#123f34 65%,#08271f);min-height:650px}.marketplace-hero h1{max-width:760px;letter-spacing:-.055em}.marketplace-feed{background:#f7f8f4}.opening-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.25rem}.opening-grid .opening-card{height:100%}.marketplace-split{display:grid;grid-template-columns:.8fr 1.2fr;gap:4rem;align-items:center}.marketplace-split .feature-strip{grid-template-columns:repeat(3,1fr);margin:0}.auth-stage{min-height:calc(100vh - 92px);display:grid;grid-template-columns:minmax(300px,.8fr) minmax(520px,1.2fr);background:#f6f7f2}.auth-promise{padding:7rem clamp(2rem,6vw,6rem);background:linear-gradient(155deg,#082f27,#0d5544);color:white}.auth-promise h2{font-size:clamp(2.5rem,4vw,4.7rem);letter-spacing:-.055em;line-height:1.02;margin-top:4rem}.auth-promise p{color:#d6e6df;max-width:520px;font-size:1.05rem}.brand.inverse{color:white}.auth-page{width:min(590px,calc(100% - 3rem));margin:auto;padding:5rem 0}.auth-page h1{font-size:clamp(2.2rem,4vw,3.8rem);letter-spacing:-.045em}.auth-back{display:inline-block;margin-bottom:4rem;color:var(--muted)}.social-auth{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}.social-auth button{min-height:52px;border:1px solid #bfcac4;border-radius:10px;background:white;font:700 .9rem inherit;cursor:pointer}.social-auth b{display:inline-grid;place-items:center;margin-right:.5rem}.google-mark{color:#2676dc}.apple-mark{color:#111}.auth-divider{display:flex;align-items:center;gap:1rem;margin:1.25rem 0;color:var(--muted);font-size:.75rem}.auth-divider:before,.auth-divider:after{content:"";height:1px;background:var(--line);flex:1}.role-choice{display:grid;grid-template-columns:1fr 1fr;gap:1rem}.role-choice button{text-align:left;padding:1.5rem;border:1px solid var(--line);border-radius:16px;background:white;box-shadow:var(--shadow);cursor:pointer}.role-choice button:hover{border-color:var(--green);transform:translateY(-2px)}.role-choice span,.role-choice strong,.role-choice small{display:block}.role-choice span{color:var(--green);font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.role-choice strong{font:800 1.25rem Avenir;margin:.75rem 0}.role-choice small{color:var(--muted);line-height:1.5}
++@media(max-width:1050px){.opening-grid{grid-template-columns:1fr 1fr}.opening-grid .opening-card:last-child{display:none}.auth-stage{grid-template-columns:1fr}.auth-promise{display:none}.marketplace-split{grid-template-columns:1fr}.marketplace-split .feature-strip{grid-template-columns:1fr}}
++@media(max-width:800px){.opening-grid{grid-template-columns:1fr}.opening-grid .opening-card:last-child{display:block}.auth-page{padding:2.5rem 0}.auth-back{margin-bottom:2rem}.social-auth,.role-choice{grid-template-columns:1fr}.marketplace-hero{min-height:auto}.marketplace-split{gap:2rem}}
+diff --git a/src/types/database.ts b/src/types/database.ts
+index fabdefd..2c1d825 100644
+--- a/src/types/database.ts
++++ b/src/types/database.ts
+@@ -2,8 +2,8 @@ export type Json=string|number|boolean|null|{[key:string]:Json|undefined}|Json[]
+ type Table<Row extends Record<string,unknown>>={Row:Row;Insert:Partial<Row>;Update:Partial<Row>;Relationships:[]};
+ export interface Database {public:{Tables:{
+  bookings:Table<{id:string;confirmation_code:string;opening_id:string;customer_id:string;provider_id:string;service_address_id:string;status:string;service_subtotal:number;addon_total:number;booking_fee:number;estimated_tax:number;total:number;provider_payout_estimate:number;provider_response_due_at:string|null;created_at:string}>;
+- profiles:Table<{id:string;role:'customer'|'provider'|'admin';display_name:string|null;email:string|null;phone:string|null;avatar_path:string|null;account_status:string;created_at:string;updated_at:string}>;
++ profiles:Table<{id:string;role:'customer'|'provider'|'admin';display_name:string|null;email:string|null;phone:string|null;avatar_path:string|null;account_status:string;role_selected_at:string|null;created_at:string;updated_at:string}>;
+  customer_profiles:Table<{user_id:string;default_address_id:string|null;preferred_contact_method:'email'|'phone'|'text'|null;created_at:string;updated_at:string}>;
+  provider_profiles:Table<{user_id:string;business_name:string;application_status:'draft'|'pending'|'approved'|'rejected'|'paused'|'suspended'|'more_information';created_at:string;updated_at:string}>;
+  addresses:Table<{id:string;user_id:string;label:string;address_line_1:string;address_line_2:string|null;city:string;state:string;postal_code:string;is_default:boolean;created_at:string;updated_at:string}>;
+-};Views:Record<string,never>;Functions:Record<string,never>;Enums:{user_role:'customer'|'provider'|'admin';application_status:'draft'|'pending'|'approved'|'rejected'|'paused'|'suspended'|'more_information'};CompositeTypes:Record<string,never>}}
++};Views:Record<string,never>;Functions:{select_initial_role:{Args:{requested_role:'customer'|'provider'};Returns:'customer'|'provider'}};Enums:{user_role:'customer'|'provider'|'admin';application_status:'draft'|'pending'|'approved'|'rejected'|'paused'|'suspended'|'more_information'};CompositeTypes:Record<string,never>}}
+diff --git a/supabase/migrations/202607290006_social_auth_role_selection.sql b/supabase/migrations/202607290006_social_auth_role_selection.sql
+new file mode 100644
+index 0000000..25df876
+--- /dev/null
++++ b/supabase/migrations/202607290006_social_auth_role_selection.sql
+@@ -0,0 +1,61 @@
++-- OpenSlot 0.3.2 social authentication role selection.
++-- Additive: existing profiles keep their role; new OAuth profiles must explicitly choose once.
++alter table public.profiles add column if not exists role_selected_at timestamptz;
++
++-- All profiles created before this migration already made an explicit registration choice.
++update public.profiles set role_selected_at = coalesce(role_selected_at, created_at, now());
++
++create or replace function public.handle_new_user() returns trigger
++language plpgsql security definer set search_path = public, pg_temp as $$
++declare
++  requested public.user_role;
++  selected_at timestamptz;
++begin
++  if new.raw_user_meta_data->>'requested_role' in ('customer','provider') then
++    requested := (new.raw_user_meta_data->>'requested_role')::public.user_role;
++    selected_at := now();
++  else
++    -- OAuth providers do not get to assign authorization data through user metadata.
++    requested := 'customer'::public.user_role;
++    selected_at := null;
++  end if;
++
++  insert into public.profiles(id,email,role,display_name,role_selected_at)
++  values(new.id,new.email,requested,
++    nullif(trim(coalesce(new.raw_user_meta_data->>'full_name',new.raw_user_meta_data->>'name','')),''),
++    selected_at);
++
++  if selected_at is not null and requested='provider' then
++    insert into public.provider_profiles(user_id) values(new.id);
++  elsif selected_at is not null then
++    insert into public.customer_profiles(user_id) values(new.id);
++  end if;
++  insert into public.notifications(user_id,type,title,message)
++  values(new.id,'registration','Welcome to OpenSlot','Your in-app account is ready.');
++  return new;
++end$$;
++
++create or replace function public.select_initial_role(requested_role public.user_role)
++returns public.user_role
++language plpgsql security definer set search_path = public, pg_temp as $$
++declare chosen public.user_role;
++begin
++  if auth.uid() is null then raise exception 'authentication_required'; end if;
++  if requested_role not in ('customer','provider') then raise exception 'invalid_role'; end if;
++
++  update public.profiles
++     set role=requested_role, role_selected_at=now(), updated_at=now()
++   where id=auth.uid() and role_selected_at is null and account_status='active'
++   returning role into chosen;
++  if chosen is null then raise exception 'role_already_selected_or_account_inactive'; end if;
++
++  delete from public.customer_profiles where user_id=auth.uid();
++  delete from public.provider_profiles where user_id=auth.uid();
++  if chosen='provider' then insert into public.provider_profiles(user_id) values(auth.uid());
++  else insert into public.customer_profiles(user_id) values(auth.uid()); end if;
++  return chosen;
++end$$;
++
++revoke execute on function public.select_initial_role(public.user_role) from public, anon;
++grant execute on function public.select_initial_role(public.user_role) to authenticated;
++revoke execute on function public.handle_new_user() from public, anon, authenticated;
+-- 
+2.43.0
+
