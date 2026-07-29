@@ -16,3 +16,27 @@
 A configuration error at startup means variables are absent/invalid. A 401 usually means an expired session; sign in again. A 403 is normally RLS, not a reason to weaken a policy. `opening_unavailable` means the opening expired or another transaction won. Inspect Supabase database/auth logs for technical detail without showing raw errors to users.
 
 Reservation expiry is **not claimed as fully automated**: enable the Supabase Cron integration and schedule `select public.expire_provider_requests();` every five minutes. The function is intentionally unavailable to browser roles. Until that external schedule is configured and observed in production, overdue-request expiration remains only database-ready.
+
+## OpenSlot 0.3.1 authentication URLs
+Set the Supabase Auth **Site URL** to `https://brandinealnku.github.io/openslots-marketplace/` and allow:
+
+- `https://brandinealnku.github.io/openslots-marketplace/`
+- `https://brandinealnku.github.io/openslots-marketplace/#/reset-password`
+- `http://localhost:5173/`
+- `http://localhost:5173/#/reset-password`
+
+GitHub Pages must define repository variables `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_APP_MODE=production`. Never use a service-role key in a browser variable.
+
+The SDK requests recovery with the hash-route URL. Supabase can return credentials in a hash before the application route; this exact hosted callback remains a required manual browser test and is not claimed as verified by unit tests.
+
+## Test accounts and administrator promotion
+Register separate customer, provider, and administrator-candidate emails; never commit passwords. Administrator registration is intentionally absent. As project owner, register the candidate normally, copy its Authentication UUID, then run:
+
+```sql
+update public.profiles set role = 'admin' where id = 'USER_UUID';
+select id, email, role, account_status from public.profiles where id = 'USER_UUID';
+```
+
+RLS/profile-protection prevents a normal browser user from performing this privilege change. Sign out and back in after promotion.
+
+Apply `202607290005_auth_security_fixes.sql` through the normal linked workflow, then run the Supabase database linter. The migration fixes mutable search paths, restricts trigger functions, removes anonymous RPC execution, and preserves authenticated access only to browser RPCs that validate identity/role/ownership/status internally.

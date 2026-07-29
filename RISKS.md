@@ -13,3 +13,9 @@
 The database foundation does not by itself prove the browser workflows. The official Supabase SDK install was blocked by an HTTP 403 from this environment's registry proxy, so the interim adapter remains and connected Auth/session/Realtime UI acceptance is unresolved. Live three-browser, recovery-email, Cron, Storage, RLS, and concurrency checks require a configured Supabase project and must follow `MANUAL_TEST_PLAN_V03.md`. Never promote this build as fully connected until those checks and the official SDK migration pass.
 
 The new administrator RPC uses a security-definer function with a fixed search path and an internal admin check. Reservation expiry is scheduler-ready but not active until Supabase Cron is configured. Payments, payouts, exact distance, maps, messaging, automated verification, calendar sync, and production observability remain deferred.
+
+## Connected authentication risks (0.3.1)
+- GitHub Pages/Supabase recovery hash ordering must be validated with a real email link; source configuration alone is not proof.
+- A delayed/missing profile trigger produces an explicit account-status state, but linked-project trigger and grants require integration verification.
+- Customer addresses and provider onboarding remain partially connected, so marketplace workflows must not be represented as production-ready.
+- SDK installation and CI require npm registry availability; no service-role credential may be introduced to work around access failures.

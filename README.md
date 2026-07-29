@@ -28,3 +28,6 @@ Domain access is centralized under `src/services`; `src/lib/env.ts` fails clearl
 GitHub Pages remains `https://brandinealnku.github.io/openslots-marketplace/`. Vite's `/openslots-marketplace/` base and `HashRouter` mean refreshes request the repository `index.html`; GitHub Actions tests/builds and uploads only `dist`. Configure both local and Pages Auth URLs as documented.
 
 The Pages repository must define Actions **variables** (not service-role secrets) named `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_APP_MODE`. Use `production` for a connected deployment and `demo` only for an intentionally isolated demonstration build.
+
+## Connected authentication (0.3.1)
+OpenSlot now has hash-routed connected account pages at `#/login`, `#/register`, `#/forgot-password`, and `#/reset-password`. `VITE_APP_MODE=demo` preserves the isolated Early Access prototype; `development` and `production` require real Supabase URL/anon-key values and never silently use demo identity data. See `SUPABASE_SETUP.md`, `AUTH_IMPLEMENTATION_REPORT.md`, and `MANUAL_TEST_PLAN_AUTH.md` before claiming live verification.

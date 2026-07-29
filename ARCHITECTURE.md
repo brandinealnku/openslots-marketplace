@@ -11,3 +11,6 @@ The migration normalizes accounts, services, availability, openings, bookings an
 Payments, fees, payouts, tax, identity/insurance review, and notification delivery remain simulated. There is no Stripe, live geocoding/maps, GPS/routing, SMS, SMTP delivery, background-check integration, calendar sync, or chat. Approval-request expiration requires a configured scheduled job. The checked-in database verification file is a manual harness and requires a running Supabase project.
 
 GitHub Pages still builds `dist`, uses `/openslots-marketplace/`, and uses hash routes. Only public URL/anon credentials are Vite variables; authorization never depends on key secrecy.
+
+## 0.3.1 authentication boundary
+`src/lib/supabase.ts` owns the single typed SDK client. UI calls `authService`/`profileService` through `AuthProvider`; protected routes evaluate the restored session, server-backed profile role/status, and provider approval. Demo mode does not mount `AuthProvider`, keeping LocalStorage mock state isolated. Hash routing remains mandatory for GitHub Pages, while RLS and validated database functions remain the security boundary.

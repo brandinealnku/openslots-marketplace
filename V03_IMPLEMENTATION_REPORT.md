@@ -39,3 +39,6 @@ See `MANUAL_TEST_PLAN_V03.md` for the exact multi-account, concurrency, privacy,
 ## Additional safety correction
 
 The demo booking form no longer asks for realistic card number, expiry, or security-code values. It now requires only an explicit simulated-payment acknowledgement. Private upload helpers validate MIME type and size, generate server-policy-compatible randomized owner paths, refuse overwrites, bound signed-link lifetime, and support provider documents as well as booking photos. These helpers still use the interim adapter until the official SDK can be fetched.
+
+## 0.3.1 authentication addendum
+The browser shell now includes a connected authentication architecture and additive security migration. This source implementation does not imply that the existing marketplace mock dashboards are fully Supabase-connected. Live email recovery, hosted callback behavior, database linter output, and deployment remain manual verification items documented in `AUTH_IMPLEMENTATION_REPORT.md`.

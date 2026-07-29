@@ -6,3 +6,6 @@
 4. Add Playwright role journeys at 375/768/1024/1440 widths and visual snapshots.
 5. Add production observability, rate limiting, abuse controls, verified SMTP, and retention/deletion workflows.
 6. Later evaluate Stripe Connect, real geocoding, document vendors, calendars, and delivery channels; none are currently operational.
+
+## Recommended task after authentication
+Connect customer profiles and addresses, provider onboarding persistence, marketplace search, approved-provider opening publication, atomic booking, booking dashboards, reviews, notifications, and support cases. Keep payments/maps/SMS/background checks separately scoped.
