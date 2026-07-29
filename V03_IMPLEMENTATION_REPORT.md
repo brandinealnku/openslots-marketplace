@@ -9,7 +9,7 @@ The v0.2 migration defines the core marketplace tables, private buckets, RLS, an
 ### Fully connected/database-enforced
 
 * Core schema, participant reads, private bucket definitions, atomic booking price snapshots, and one-live-booking uniqueness originate in v0.2.
-* v0.3 adds administrator-only provider decisions, provider self-submission validation, server-maintained published-review aggregates, and a scheduler-ready expiration function.
+* v0.3 adds administrator-only provider decisions, provider self-submission validation, server-maintained published-review aggregates, and a scheduler-ready expiration function that restores eligible openings, notifies both participants, and audits each expiry.
 * Pages CI receives the three public Vite values from repository variables.
 
 ### Partially connected
@@ -35,3 +35,7 @@ The v0.2 migration defines the core marketplace tables, private buckets, RLS, an
 Search and participant queries must remain bounded and RLS-filtered; never subscribe to whole high-volume tables. Privileged provider statuses are changed only by the `review_provider_application` security-definer RPC, which checks `is_admin`, validates actions/reasons, notifies the provider, and audits the actor. Rating aggregates are trigger-controlled. Private object access still depends on both owner-prefixed paths and database associations.
 
 See `MANUAL_TEST_PLAN_V03.md` for the exact multi-account, concurrency, privacy, responsive, recovery, and Realtime-degradation checks that must pass against the target project before production acceptance.
+
+## Additional safety correction
+
+The demo booking form no longer asks for realistic card number, expiry, or security-code values. It now requires only an explicit simulated-payment acknowledgement. Private upload helpers validate MIME type and size, generate server-policy-compatible randomized owner paths, refuse overwrites, bound signed-link lifetime, and support provider documents as well as booking photos. These helpers still use the interim adapter until the official SDK can be fetched.
