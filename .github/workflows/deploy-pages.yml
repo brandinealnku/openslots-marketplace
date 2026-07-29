@@ -17,6 +17,10 @@ concurrency:
 
 jobs:
   build:
+    env:
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      VITE_APP_MODE: ${{ vars.VITE_APP_MODE }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
