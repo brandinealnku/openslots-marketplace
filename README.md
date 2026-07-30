@@ -42,3 +42,6 @@ The UI now uses a compact mobile header, role-aware safe-area bottom navigation,
 
 ## Version 0.3.4 live marketplace
 Connected development/production modes now use Supabase services for public openings, bookings, provider workflows, administration and notifications; demo mode remains an isolated mock experience. Apply migrations `202607300007` through `202607300010`, then follow `MANUAL_TEST_PLAN_V034.md`. Distance is ZIP/service-area matching, and no payments are collected.
+
+## Version 0.3.5A provider subscriptions
+Provider Billing is Stripe Billing for provider access to OpenSlot only. Customer service payment is arranged directly with the provider; OpenSlot does not collect, hold, or process it. Billing defaults to `disabled`; see `PROVIDER_BILLING_SETUP.md`. Google and Apple authentication configuration remains deferred.

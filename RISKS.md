@@ -25,3 +25,6 @@ Safe-area and dynamic viewport rules are implemented but not physical-iPhone ver
 
 ## 0.3.4 residual risk
 SQL migrations require linked/local execution and multi-account verification. Expiration depends on an externally configured scheduler. Search detail currently finds an ID in a bounded safe result set. The onboarding UI does not cover all document controls. These are not represented as completed production verification.
+
+## Provider Billing risks (0.3.5A)
+Stripe behavior still needs deployed test-mode validation. A wrong webhook secret, missing event selection, Price mapping, Portal configuration, or APP_BASE_URL can prevent synchronization/returns. Unique event claims limit replay, RLS prevents provider writes, and access ignores browser return parameters. Operators must monitor failed event rows. Existing booking money columns and old demo language are migration compatibility debt; they must not be interpreted as payment processing. Live billing must remain explicitly disabled until reviewed.

@@ -20,3 +20,6 @@ GitHub Pages still builds `dist`, uses `/openslots-marketplace/`, and uses hash 
 
 ## 0.3.4 connected data boundary
 `App` selects demo or connected shells. Connected routes call the centralized opening, booking, provider, admin and notification services, all backed by the sole client in `src/lib/supabase.ts`. Public reads use a safe RPC; identity/status mutations use fixed-search-path workflow RPCs. Correctness uses refetch-after-mutation and does not depend on Realtime.
+
+## 0.3.5A billing boundary
+The browser reads safe plan/access RPCs and asks authenticated Edge Functions for Stripe-hosted URLs. It never sends a provider/customer/Price ID or subscription state. Stripe webhook signature verification precedes a unique event claim and service-role state update. `get_provider_marketplace_access()` and publishing RPCs are authoritative. Hash-based return URLs preserve GitHub Pages routing. Demo mode blocks billing calls.

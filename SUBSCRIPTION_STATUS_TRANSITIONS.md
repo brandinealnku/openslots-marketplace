@@ -1,0 +1,3 @@
+# Subscription status transitions
+
+Stripe webhooks are authoritative. `none` becomes `incomplete`, `trialing`, or `active` after subscription synchronization. `trialing` normally becomes `active`; failed collection may move an account to `past_due` and then `unpaid` or `canceled`. An unfinished Checkout may become `incomplete_expired`. Portal cancellation can set `cancel_at_period_end` while access remains active until Stripe changes status; deletion records `canceled`. `paused` has no access. Only `trialing` and `active` grant marketplace publishing, and a Checkout return never changes access by itself. Duplicate event IDs return success without repeating mutations or notifications.

@@ -1,0 +1,3 @@
+import type {ProviderAccess} from '../services/billingService';
+export const hasMarketplaceAccess=(value:Pick<ProviderAccess,'can_publish'|'subscription_status'>)=>value.can_publish&&['trialing','active'].includes(value.subscription_status);
+export const statusMessage=(status:ProviderAccess['subscription_status'])=>({none:'Choose a plan to publish openings.',trialing:'Your trial is active.',active:'Your subscription is active.',past_due:'Payment failed. Manage billing to restore access.',unpaid:'Billing requires attention.',canceled:'Your subscription is canceled.',incomplete:'Checkout is incomplete.',incomplete_expired:'Checkout expired. Start again.',paused:'Your subscription is paused.'}[status]);
