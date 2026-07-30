@@ -20,3 +20,6 @@ The baseline monolithic JS was 525.10 kB (151.74 kB gzip). v0.3.3 remains a sing
 
 ## Deferred / known limitations
 Connected marketplace data is still partially backed by prototype store screens. Payments, payouts, maps, route intelligence, verification, SMS, and calendar integration remain explicitly simulated. Admin tables use contained scrolling rather than mobile cards. No live Pages deployment, real Supabase, OAuth, offline network throttling, physical keyboard, or physical iPhone verification occurred. Search sheet state lasts while the page is mounted; only the incoming service query is initialized from the URL.
+
+## Superseded marketplace behavior
+Version 0.3.4 replaces connected-mode mock marketplace routes while preserving this report as the 0.3.3 baseline. See `V034_IMPLEMENTATION_REPORT.md`.

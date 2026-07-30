@@ -22,3 +22,6 @@ The new administrator RPC uses a security-definer function with a fixed search p
 
 ## Mobile v0.3.3 risks (2026-07-30)
 Safe-area and dynamic viewport rules are implemented but not physical-iPhone verified. Safari keyboard, address-bar collapse, Apple/Google redirect continuity, password-manager behavior, upload picker, and orientation require the manual matrix. The bundle remains above 500 kB, and co-located routes prevent low-risk route splitting. Contained admin tables are usable but not an ideal card presentation. UI role navigation never replaces guards/RLS.
+
+## 0.3.4 residual risk
+SQL migrations require linked/local execution and multi-account verification. Expiration depends on an externally configured scheduler. Search detail currently finds an ID in a bounded safe result set. The onboarding UI does not cover all document controls. These are not represented as completed production verification.

@@ -39,3 +39,6 @@ See `V032_IMPLEMENTATION_REPORT.md` and `SUPABASE_SETUP.md` for provider configu
 
 ## Version 0.3.3 mobile experience
 The UI now uses a compact mobile header, role-aware safe-area bottom navigation, an accessible search filter sheet, phone agenda schedule, 16px controls, dynamic viewport sizing, and sticky booking/form actions. Use `MOBILE_UX_AUDIT.md`, `MOBILE_TEST_PLAN_V033.md`, and `V033_IMPLEMENTATION_REPORT.md` for the audit, physical-device matrix, and honest verification boundary.
+
+## Version 0.3.4 live marketplace
+Connected development/production modes now use Supabase services for public openings, bookings, provider workflows, administration and notifications; demo mode remains an isolated mock experience. Apply migrations `202607300007` through `202607300010`, then follow `MANUAL_TEST_PLAN_V034.md`. Distance is ZIP/service-area matching, and no payments are collected.

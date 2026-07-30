@@ -27,3 +27,6 @@ At each width evaluate `document.documentElement.scrollWidth > document.document
 
 ## Desktop regression and screenshots
 At 768, 1024, and 1440 verify desktop navigation, filter sidebar, detail sidebar, calendar, tables, demo controls, connected routing, and GitHub Pages hash URLs. Capture homepage, search, detail, login, registration, booking, customer bookings, provider dashboard, schedule, and post opening at 375; tablet at 768; desktop at 1440. Record browser/commit beside artifacts. No physical-iPhone or OAuth result may be marked passed based only on emulation.
+
+## 0.3.4 live-data extension
+The 0.3.3 viewport matrix remains mandatory and is extended by `MANUAL_TEST_PLAN_V034.md` for loading/error/empty/mutation states and multi-account booking conflict checks. No physical-device result is implied by this note.

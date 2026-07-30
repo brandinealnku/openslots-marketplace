@@ -50,3 +50,6 @@ Apply `202607290005_auth_security_fixes.sql` through the normal linked workflow,
 5. Keep Email enabled. Test email signup/login/recovery plus new and returning Google/Apple users on localhost and the deployed Pages URL. Verify a new social user is sent to `#/choose-role`, the choice works once, and dashboard access matches it.
 
 Source code inclusion does not configure either third-party provider. Provider credentials and dashboard access are required before either flow can be browser-tested.
+
+## Version 0.3.4 migration order
+Run `npx supabase db push --dry-run`, review migrations `202607300007_live_marketplace_queries.sql`, `202607300008_live_opening_workflows.sql`, `202607300009_live_booking_workflows.sql`, and `202607300010_notifications_indexes_and_rls.sql`, then run `npx supabase db push`. The public RPC exposes only safe joined fields. Authenticated RPCs derive identity from `auth.uid()`. New indexes support provider/opening, participant booking, application and audit lookups. Documents remain private and signed-URL based. Configure a scheduler for `expire_provider_requests`; Realtime is not required. Run database lint and `supabase/tests/live_marketplace_verification.sql` locally. Never use `db reset` against a linked project.
