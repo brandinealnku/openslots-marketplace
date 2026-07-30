@@ -19,3 +19,6 @@ The new administrator RPC uses a security-definer function with a fixed search p
 - A delayed/missing profile trigger produces an explicit account-status state, but linked-project trigger and grants require integration verification.
 - Customer addresses and provider onboarding remain partially connected, so marketplace workflows must not be represented as production-ready.
 - SDK installation and CI require npm registry availability; no service-role credential may be introduced to work around access failures.
+
+## Mobile v0.3.3 risks (2026-07-30)
+Safe-area and dynamic viewport rules are implemented but not physical-iPhone verified. Safari keyboard, address-bar collapse, Apple/Google redirect continuity, password-manager behavior, upload picker, and orientation require the manual matrix. The bundle remains above 500 kB, and co-located routes prevent low-risk route splitting. Contained admin tables are usable but not an ideal card presentation. UI role navigation never replaces guards/RLS.

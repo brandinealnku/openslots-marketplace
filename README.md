@@ -36,3 +36,6 @@ OpenSlot now has hash-routed connected account pages at `#/login`, `#/register`,
 Google and Apple buttons use Supabase OAuth and return through the hash-routed `#/auth/callback` page. A first-time social account must choose customer or provider at `#/choose-role`; the one-time choice is committed by the database RPC in `202607290006_social_auth_role_selection.sql`. Email/password registration, verification, recovery, and login remain available. Demo mode does not initialize or expose connected social identity.
 
 See `V032_IMPLEMENTATION_REPORT.md` and `SUPABASE_SETUP.md` for provider configuration and verification boundaries.
+
+## Version 0.3.3 mobile experience
+The UI now uses a compact mobile header, role-aware safe-area bottom navigation, an accessible search filter sheet, phone agenda schedule, 16px controls, dynamic viewport sizing, and sticky booking/form actions. Use `MOBILE_UX_AUDIT.md`, `MOBILE_TEST_PLAN_V033.md`, and `V033_IMPLEMENTATION_REPORT.md` for the audit, physical-device matrix, and honest verification boundary.

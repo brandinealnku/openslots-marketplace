@@ -9,3 +9,6 @@ The browser may request only `customer` or `provider`. `select_initial_role` der
 ## Verification scope
 
 Automated checks cover compilation, existing service behavior, account routing, and social-role routing. Provider enablement, consent-screen review, OAuth credentials, hosted redirects, Apple domain verification, and a real first login require dashboard credentials and manual browser testing; they are not represented as completed by source-level tests.
+
+## Superseded presentation layer
+Version 0.3.3 builds on this authentication/security work with mobile navigation, filter-dialog, safe-area, form, and agenda improvements. The v0.3.2 OAuth verification boundary remains unchanged: source presence is not evidence of a real provider login.
