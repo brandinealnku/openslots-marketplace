@@ -1,0 +1,5 @@
+import {beforeEach,describe,expect,it,vi} from 'vitest';
+const invoke=vi.fn();vi.mock('../lib/supabase',()=>({requireSupabase:()=>({functions:{invoke},rpc:vi.fn()})}));
+vi.mock('../lib/env',()=>({env:{mode:'development',billingMode:'test'}}));
+import {billingService} from './billingService';
+describe('billing edge function client',()=>{beforeEach(()=>invoke.mockReset());it('submits only plan code to checkout',async()=>{invoke.mockResolvedValue({data:{url:'https://checkout.stripe.com/c/pay/test'},error:null});expect(await billingService.checkout('starter')).toContain('checkout.stripe.com');expect(invoke).toHaveBeenCalledWith('create-provider-subscription-checkout',{body:{planCode:'starter'}})});it('opens provider portal',async()=>{invoke.mockResolvedValue({data:{url:'https://billing.stripe.com/p/session'},error:null});await billingService.portal();expect(invoke).toHaveBeenCalledWith('create-provider-billing-portal',{body:{}})});it('rejects unsafe returned URLs',async()=>{invoke.mockResolvedValue({data:{url:'https://evil.example'},error:null});await expect(billingService.portal()).rejects.toThrow('invalid URL')})});

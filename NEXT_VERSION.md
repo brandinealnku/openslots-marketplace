@@ -9,3 +9,6 @@
 
 ## Recommended 0.3.5 priorities
 Complete provider service/category and document onboarding UI; add opening edit/duplicate RPC/UI; deploy expiration scheduling; add integration test fixtures and multi-session concurrency automation; introduce route-level lazy chunks; and complete physical-iPhone/accessibility testing. Payments, GPS/maps and push remain outside this increment.
+
+## After 0.3.5A
+0.3.5B should enforce plan opening/publishing counters transactionally. Later work may add reviews, richer cancellation/support workflows, and trust tooling. It must not turn OpenSlot into the processor of customer service payments. Google and Apple provider configuration remains deferred.
