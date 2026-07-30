@@ -14,3 +14,6 @@ GitHub Pages still builds `dist`, uses `/openslots-marketplace/`, and uses hash 
 
 ## 0.3.1 authentication boundary
 `src/lib/supabase.ts` owns the single typed SDK client. UI calls `authService`/`profileService` through `AuthProvider`; protected routes evaluate the restored session, server-backed profile role/status, and provider approval. Demo mode does not mount `AuthProvider`, keeping LocalStorage mock state isolated. Hash routing remains mandatory for GitHub Pages, while RLS and validated database functions remain the security boundary.
+
+## 0.3.3 responsive presentation boundary
+`src/mobile.ts` is the testable source for role-aware mobile destinations. `BottomNav` consumes it in both isolated demo and connected shells; it does not grant authorization. Guards and Supabase RLS remain authoritative. `MobileSheet` centralizes dialog semantics, Escape handling, focus containment/restoration, and body scroll lock. CSS safe-area/dynamic viewport behavior is presentation-only and preserves desktop routes and HashRouter deployment.
