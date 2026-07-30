@@ -1,4 +1,6 @@
 {
+  "name": "openslots-marketplace",
+  "version": "0.3.4",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

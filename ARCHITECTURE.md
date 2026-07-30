@@ -17,3 +17,6 @@ GitHub Pages still builds `dist`, uses `/openslots-marketplace/`, and uses hash 
 
 ## 0.3.3 responsive presentation boundary
 `src/mobile.ts` is the testable source for role-aware mobile destinations. `BottomNav` consumes it in both isolated demo and connected shells; it does not grant authorization. Guards and Supabase RLS remain authoritative. `MobileSheet` centralizes dialog semantics, Escape handling, focus containment/restoration, and body scroll lock. CSS safe-area/dynamic viewport behavior is presentation-only and preserves desktop routes and HashRouter deployment.
+
+## 0.3.4 connected data boundary
+`App` selects demo or connected shells. Connected routes call the centralized opening, booking, provider, admin and notification services, all backed by the sole client in `src/lib/supabase.ts`. Public reads use a safe RPC; identity/status mutations use fixed-search-path workflow RPCs. Correctness uses refetch-after-mutation and does not depend on Realtime.

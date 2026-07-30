@@ -1,9 +1,9 @@
-import {supabaseRequest} from '../lib/supabase';
-import type {Database} from '../types/database';
-type Booking=Database['public']['Tables']['bookings']['Row'];
+import {requireSupabase} from '../lib/supabase';import {normalizeError} from './errors';
+export type LiveBooking={id:string;confirmation_code:string;opening_id:string;customer_id:string;provider_id:string;service_address_id:string;status:string;service_subtotal:number;addon_total:number;booking_fee:number;estimated_tax:number;total:number;provider_response_due_at:string|null;special_instructions?:string|null;created_at:string;appointment_openings?:{start_at:string;end_at:string;provider_services?:{service_categories?:{name:string}}};profiles?:{display_name:string|null}};
 export interface CreateBookingInput{openingId:string;serviceAddressId:string;propertySize?:string;grassHeight?:string;gateAccess?:string;petsPresent:boolean;specialInstructions?:string;preferredContactMethod:'email'|'phone'|'text';addonIds:string[]}
-export const bookingService={
- createAtomic:(input:CreateBookingInput,token:string)=>supabaseRequest<Booking[]>('rest/v1/rpc/create_booking',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_opening_id:input.openingId,p_service_address_id:input.serviceAddressId,p_property_size:input.propertySize,p_grass_height:input.grassHeight,p_gate_access:input.gateAccess,p_pets_present:input.petsPresent,p_special_instructions:input.specialInstructions,p_preferred_contact_method:input.preferredContactMethod,p_addon_ids:input.addonIds})},token),
- mine:(token:string)=>supabaseRequest<Booking[]>('rest/v1/bookings?select=*&order=start_at.desc',{},token),
- transition:(bookingId:string,status:string,reason:string|undefined,token:string)=>supabaseRequest('rest/v1/rpc/transition_booking',{method:'POST',body:JSON.stringify({p_booking_id:bookingId,p_new_status:status,p_reason:reason})},token),
-};
+async function call<T>(name:string,args:Record<string,unknown>):Promise<T>{const {data,error}=await requireSupabase().rpc(name as never,args as never);if(error)throw normalizeError(error);return data as T}
+const select='id,confirmation_code,opening_id,customer_id,provider_id,service_address_id,status,service_subtotal,addon_total,booking_fee,estimated_tax,total,provider_response_due_at,special_instructions,created_at,appointment_openings(start_at,end_at,provider_services(service_categories(name)))';
+export const bookingService={createAtomic:async(input:CreateBookingInput)=>{const rows=await call<LiveBooking[]>('create_booking',{p_opening_id:input.openingId,p_service_address_id:input.serviceAddressId,p_property_size:input.propertySize||null,p_grass_height:input.grassHeight||null,p_gate_access:input.gateAccess||null,p_pets_present:input.petsPresent,p_special_instructions:input.specialInstructions||null,p_preferred_contact_method:input.preferredContactMethod,p_addon_ids:input.addonIds});return rows[0]},
+ async mine(){const {data,error}=await requireSupabase().from('bookings').select(select).order('created_at',{ascending:false}).limit(50);if(error)throw normalizeError(error);return data as unknown as LiveBooking[]},
+ async byId(id:string){const {data,error}=await requireSupabase().from('bookings').select(select).eq('id',id).maybeSingle();if(error)throw normalizeError(error);return data as unknown as LiveBooking|null},
+ respond:(id:string,accept:boolean,reason?:string)=>call<LiveBooking>('respond_to_booking_request',{p_booking_id:id,p_accept:accept,p_reason:reason||null})};

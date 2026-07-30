@@ -6,3 +6,6 @@
 4. Run the v0.3.3 checklist on physical iPhones and configured Google/Apple providers; fix measured Safari/keyboard issues.
 5. Transform admin tables into semantic mobile card rows and add offline retry primitives for connected mutations.
 6. Keep payments, live maps, SMS, background checks, and push notifications separately scoped.
+
+## Recommended 0.3.5 priorities
+Complete provider service/category and document onboarding UI; add opening edit/duplicate RPC/UI; deploy expiration scheduling; add integration test fixtures and multi-session concurrency automation; introduce route-level lazy chunks; and complete physical-iPhone/accessibility testing. Payments, GPS/maps and push remain outside this increment.
