@@ -9,3 +9,5 @@ Before editing: `npm ci` passed; `npm test` passed 30 tests in 7 files; `npm run
 
 ## Validation limitation
 The final clean install, 41-test suite, TypeScript lint, production build, and `git diff --check` pass. `npx supabase db push --dry-run` could not install the absent Supabase CLI because this environment returned HTTP 403 from npm; therefore migration application is not claimed as tested. Stripe test-mode end-to-end behavior also requires the manual setup above.
+
+0.3.6 relationship work is documented in `V036_IMPLEMENTATION_REPORT.md`.

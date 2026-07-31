@@ -56,3 +56,6 @@ Run `npx supabase db push --dry-run`, review migrations `202607300007_live_marke
 
 ## Provider Billing Functions
 Apply migrations `202607300011` and `202607300012`, configure the secrets and Stripe event allowlist in `PROVIDER_BILLING_SETUP.md`, and deploy `create-provider-subscription-checkout`, `create-provider-billing-portal`, and `stripe-subscription-webhook`. Keep Price IDs and all secret keys server-side. Set the webhook function to use Stripe signature authentication, not a caller JWT. Checkout/Portal require a user JWT.
+
+## 0.3.6 setup
+Apply migration `202607310013_relationship_marketplace.sql`. It creates the public `provider-public-images` bucket (5 MB, JPEG/PNG/WebP) with owner-folder writes; never place private provider documents there. Existing providers need eligible `trialing`/`active` subscription rows, public profile fields, active services, and approved applications to appear or accept new requests.

@@ -28,3 +28,6 @@ SQL migrations require linked/local execution and multi-account verification. Ex
 
 ## Provider Billing risks (0.3.5A)
 Stripe behavior still needs deployed test-mode validation. A wrong webhook secret, missing event selection, Price mapping, Portal configuration, or APP_BASE_URL can prevent synchronization/returns. Unique event claims limit replay, RLS prevents provider writes, and access ignores browser return parameters. Operators must monitor failed event rows. Existing booking money columns and old demo language are migration compatibility debt; they must not be interpreted as payment processing. Live billing must remain explicitly disabled until reviewed.
+
+## 0.3.6 known limitations
+Messaging is not end-to-end encrypted and simple financial-data warnings are not comprehensive. Exact distance and response metrics are not claimed. Public bucket objects are deliberately public once their randomized owner path is known. Recurrence stores preference only. Native iPhone Safari requires manual verification. Relationship demo fixtures and attachment moderation are deferred.

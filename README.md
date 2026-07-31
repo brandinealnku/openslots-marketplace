@@ -45,3 +45,6 @@ Connected development/production modes now use Supabase services for public open
 
 ## Version 0.3.5A provider subscriptions
 Provider Billing is Stripe Billing for provider access to OpenSlot only. Customer service payment is arranged directly with the provider; OpenSlot does not collect, hold, or process it. Billing defaults to `disabled`; see `PROVIDER_BILLING_SETUP.md`. Google and Apple authentication configuration remains deferred.
+
+## Relationship marketplace (0.3.6)
+Connected customers can discover approved providers independently of posted openings, save profiles, exchange participant-scoped messages, and request custom times. Providers edit public presentation and respond/propose appointments. Service payment is arranged directly with the provider; OpenSlot never collects customer service-payment cards, holds funds, or manages payouts. Provider subscriptions are OpenSlot's revenue model. See `RELATIONSHIP_MARKETPLACE_AUDIT.md` and `MANUAL_TEST_PLAN_V036.md`.
