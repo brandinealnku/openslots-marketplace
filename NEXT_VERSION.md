@@ -12,3 +12,6 @@ Complete provider service/category and document onboarding UI; add opening edit/
 
 ## After 0.3.5A
 0.3.5B should enforce plan opening/publishing counters transactionally. Later work may add reviews, richer cancellation/support workflows, and trust tooling. It must not turn OpenSlot into the processor of customer service payments. Google and Apple provider configuration remains deferred.
+
+## Recommended after 0.3.6
+Add local-Supabase integration fixtures for full adversarial RLS tests, request proposal controls without prompt dialogs, secure moderated attachments, configurable contact-safety rules, real geospatial filtering, richer demo relationship fixtures, response metrics, and opt-in finite recurring booking generation.

@@ -23,3 +23,6 @@ GitHub Pages still builds `dist`, uses `/openslots-marketplace/`, and uses hash 
 
 ## 0.3.5A billing boundary
 The browser reads safe plan/access RPCs and asks authenticated Edge Functions for Stripe-hosted URLs. It never sends a provider/customer/Price ID or subscription state. Stripe webhook signature verification precedes a unique event claim and service-role state update. `get_provider_marketplace_access()` and publishing RPCs are authoritative. Hash-based return URLs preserve GitHub Pages routing. Demo mode blocks billing calls.
+
+## 0.3.6 relationship boundary
+`RelationshipPages` is route-lazy and calls typed profile, save, conversation, and request services. Public discovery uses a narrow security-definer projection; private interaction uses RLS plus fixed-search-path RPCs. Proposal conversion locks request/proposal rows, checks conflicts, creates a booked synthetic opening and confirmed booking, then links conversation/audit/notifications in one transaction.

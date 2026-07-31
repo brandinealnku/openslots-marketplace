@@ -1,0 +1,3 @@
+# Messaging security model
+
+Conversations bind one customer and provider and optionally a booking/request. RLS admits participants and administrators only. `send_conversation_message` derives `sender_id` from `auth.uid()`, verifies active participation, trims/limits text, and deduplicates by participant client nonce. Browser-supplied sender IDs are never accepted. Text is encrypted in transit and inherits Supabase at-rest controls, but is **not end-to-end encrypted**. Notifications include no message body. A pre-send warning detects obvious card/account/password/SSN patterns without altering text; comprehensive contact detection and attachments are deferred. Reports expose no internal moderation notes.

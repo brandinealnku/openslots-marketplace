@@ -7,3 +7,6 @@ A published opening belongs to its authenticated approved provider. `create_book
 
 ## Provider subscription model (0.3.5A)
 `subscription_plans` stores configurable entitlements and server-private Stripe Price mappings. `provider_subscriptions` is one-to-one with a provider/user and stores Stripe object identifiers plus canonical status/period timestamps—never payment-method payloads. `subscription_events` is a unique Stripe-event ledger/audit trail. Only `trialing` and `active` provide access; detailed quota enforcement is deferred to 0.3.5B. Legacy booking monetary columns are historical marketplace prototypes and do not represent a payment processor.
+
+## Relationship entities
+`provider_portfolio_items` contains public image metadata; `saved_providers` remains customer-private. `conversations` bind customer/provider and optionally request/booking; `messages` are participant text with an idempotency nonce. `custom_service_requests` stores preference/recurrence/address and status; `custom_request_proposals` stores one live revised time. Conversion links `converted_booking_id`. Recurrence never generates a series in 0.3.6.
